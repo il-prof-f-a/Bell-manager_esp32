@@ -4,6 +4,7 @@
 <head>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <title>Bell-Manager</title>
+
   <style>
     body {
       margin: 0;
@@ -13,18 +14,45 @@
 
     /* Barra superiore */
     .barraSuperiore {
+      /* display flex per il layout*/
+      display: flex;
+      /* per avere spazio sinistra e destra */
+      justify-content: space-between;
+      align-items: center;
       background-color: #0180ff;
       color: white;
       padding: 20px;
       font-size: 25px;
       font-weight: bold;
-      text-align: center;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
+
+    .TestoDiCentro {
+      /* posizione assoluto rispetto alla barra*/
+      position: absolute;
+      /* posizione a metà della barra*/
+      left: 50%;
+      /*centra il testo */
+      transform: translatex(-50%);
+      /*il testo non va a capo*/
+      white-space: nowrap;
+
+    }
+
+    .TestoDiSinistra {
+      font-size: 18px;
+    }
+
+    .TestoDiDestra {
+      font-size: 18px;
+
     }
 
     /* Container principale */
     .containerPrincipale {
       max-width: 1600px;
+      /* Altezza minima 100% viewport */
       min-height: 100vh;
       margin: 30px auto;
       background: rgba(255, 255, 255, 0.329);
@@ -39,8 +67,10 @@
 
     /* Barra Bottoni */
     .BottoniPrincipali {
+      /* Disposizione bottoni in fila*/
       display: flex;
       justify-content: center;
+      /* spaziatura tra i bottoni */
       gap: 25px;
       background: rgba(0, 0, 0, 0.06);
       padding: 10px;
@@ -62,15 +92,33 @@
 
     /* hover dei Bottoni */
     .BottoniPrincipali button:hover {
+      /* nero al passaggio del cursore*/
       background: #000000;
     }
 
+    /* Sfondo pagina oscurata quando un container è aperto*/
+    .SfondoPagina {
+      /* sempre visibile nella pagina*/
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      /* nascosto */
+      display: none;
+      /* sotto i container*/
+      z-index: 900;
+
+    }
+
     /* container sezione aggiungi*/
-    .ContainerAggiugi {
+    .ContainerAggiungi {
+      /* Larghezza responsiva */
       width: 90%;
+      /* Larghezza massima*/
       max-width: 600px;
       min-height: auto;
-      margin: 30px auto;
       background: rgba(255, 255, 255, 0.85);
       padding: 25px;
       text-align: center;
@@ -78,15 +126,29 @@
       font-weight: 600;
       border-radius: 18px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+      /* Sfondo sfocato dietro */
       backdrop-filter: blur(8px);
+      /* fissato al centro*/
+      position: fixed;
+      /* fissato verticalmente al centro */
+      top: 50%;
+      /* fissato orizzontalmente al centro */
+      left: 50%;
+      /* centrato*/
+      transform: translate(-50%, -50%);
+      /* sopra allo sfondo nero*/
+      z-index: 1000;
+      /* nascosto */
+      display: none;
     }
 
     /* container sezione impostazione*/
     .ContainerImpostazione {
+      /* Larghezza responsiva */
       width: 90%;
+      /* Larghezza massima*/
       max-width: 600px;
       min-height: auto;
-      margin: 30px auto;
       background: rgba(255, 255, 255, 0.85);
       padding: 25px;
       text-align: center;
@@ -94,15 +156,29 @@
       font-weight: 600;
       border-radius: 18px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+      /* Sfondo sfocato dietro */
       backdrop-filter: blur(8px);
+      /* fissato al centro*/
+      position: fixed;
+      /* fissato verticalmente al centro */
+      top: 50%;
+      /* fissato orizzontalmente al centro */
+      left: 50%;
+      /* centrato*/
+      transform: translate(-50%, -50%);
+      /* sopra allo sfondo nero*/
+      z-index: 1000;
+      /* nascosto */
+      display: none;
     }
 
     /* container sezione login*/
     .ContainerLogin {
+      /* Larghezza responsiva */
       width: 90%;
+      /* Larghezza massima*/
       max-width: 600px;
       min-height: auto;
-      margin: 30px auto;
       background: rgba(255, 255, 255, 0.85);
       padding: 25px;
       text-align: center;
@@ -110,33 +186,66 @@
       font-weight: 600;
       border-radius: 18px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+      /* Sfondo sfocato dietro */
       backdrop-filter: blur(8px);
+      /* fissato al centro*/
+      position: fixed;
+      /* fissato verticalmente al centro */
+      top: 50%;
+      /* fissato orizzontalmente al centro */
+      left: 50%;
+      /* centrato*/
+      transform: translate(-50%, -50%);
+      /* sopra allo sfondo nero*/
+      z-index: 1000;
+      /* nascosto */
+      display: none;
     }
   </style>
 </head>
 
 <body>
-
-  <!-- div barra superiore -->
+  <!-- div barra superiore titolo -->
   <div class="barraSuperiore">
-    Bell-Manager
+
+    <!-- Span per mandare automaticamente a capo i testi dentro la barra-->
+
+    <span class="TestoDiCentro"> Bell-Manager </span>
+    <!-- testo da modificare con segnaposto-->
+    <span class="TestoDiSinistra"> 9:50</span>
+    <!-- testo da modificare con lable-->
+    <span class="TestoDiDestra"> Intervallo - 10:00</span>
   </div>
 
   <!-- div container principale -->
   <div class="containerPrincipale">
+
+    <!-- testo da modificare con una lable -->
     <h2>Nome Scuola</h2>
 
     <div class="BottoniPrincipali">
-      <button><i class="fa-solid fa-plus"></i> Aggiungi</button>
-      <button><i class="fa-solid fa-gear"></i> Impostazioni</button>
-      <button><i class="fa-solid fa-circle-user"></i> Login</button>
+      <button id="btn_Aggiungi">
+        <i class="fa-solid fa-plus"></i>
+        Aggiungi
+      </button>
+      <button id="btn_Impostazioni">
+        <i class="fa-solid fa-gear"></i>
+        Impostazioni
+      </button>
+      <button id="btn_Login">
+        <i class="fa-solid fa-circle-user"></i>
+        Login
+      </button>
     </div>
 
   </div>
 
+  <!-- div per sfondo della pagina-->
+  <div class="SfondoPagina"> </div>
+
   <!-- div container sezione aggiungi -->
-  <div class="ContainerAggiugi">
-    <h2>Aggiugi Campanella</h2>
+  <div class="ContainerAggiungi">
+    <h2>Aggiungi Campanella</h2>
 
 
   </div>
@@ -154,6 +263,49 @@
 
 
   </div>
+
+  <script>
+    // logica per mostrare e chiudere i container per le sezioni login,impostazioni,aggiugi
+
+    // seleziono i container della varie sezioni login,impostazioni,aggiugi
+    const ContainerAggiugi = document.querySelector('.ContainerAggiungi');
+    const ContainerImpostazione = document.querySelector('.ContainerImpostazione');
+    const ContainerLogin = document.querySelector('.ContainerLogin');
+    const SfondoPagina = document.querySelector('.SfondoPagina');
+
+    // funzione per mostrare il container aggiugi
+    document.getElementById('btn_Aggiungi').onclick = () => {
+      // mostra sfondo nero della pagina
+      SfondoPagina.style.display = 'block';
+      // reset display
+      ContainerAggiugi.style.display = 'none';
+      // mostra il container
+      ContainerAggiugi.style.display = 'block';
+
+    };
+    // funzione per mostrare il container impostazioni
+    document.getElementById('btn_Impostazioni').onclick = () => {
+      // mostra sfondo nero della pagina
+      SfondoPagina.style.display = 'block';
+      // reset display
+      ContainerImpostazione.style.display = 'none';
+      // mostra il container
+      ContainerImpostazione.style.display = 'block';
+
+    };
+    // funzione per mostrare il container login
+    document.getElementById('btn_Login').onclick = () => {
+      // mostra sfondo nero della pagina
+      SfondoPagina.style.display = 'block';
+      // reset display
+      ContainerLogin.style.display = 'none';
+      // mostra il container
+      ContainerLogin.style.display = 'block';
+
+    };
+
+
+  </script>
 
 </body>
 
