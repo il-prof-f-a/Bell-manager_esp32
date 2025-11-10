@@ -25,28 +25,69 @@
       font-size: 25px;
       font-weight: bold;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-      position: relative;
+      /* centro il testo*/
+      position: relative; 
     }
 
+    /* testo di centro dentro la barra superiore*/
     .TestoDiCentro {
-      /* posizione assoluto rispetto alla barra*/
-      position: absolute;
-      /* posizione a metà della barra*/
+      /* posizione testo centrato*/
+      position: absolute; 
       left: 50%;
-      /*centra il testo */
-      transform: translatex(-50%);
-      /*il testo non va a capo*/
+      transform: translateX(-50%);
       white-space: nowrap;
-
+      
     }
 
+    /* sezione testo di sinistra dentro la barra superiore*/
     .TestoDiSinistra {
+      /* layout verticale*/
+      display: flex;  
+      /* incolonna le due righe*/
+      flex-direction: column; 
+      /* centra il testo*/
+      align-items: center;    
       font-size: 18px;
+      white-space: nowrap;
+      margin-left: 20px;
     }
 
+    /* sezione testo di destra dentro la barra superiore*/
     .TestoDiDestra {
+      /* layout verticale*/
+      display: flex;
+      /* incolonna le due righe*/
+      flex-direction: column;
+      /* centra il testo*/
+      align-items: center;
       font-size: 18px;
+      white-space: nowrap;
+      margin-left: 20px;
 
+    }
+
+    /* testo di sinistra sopra dentro la barra superiore*/
+    .TestoSopraSinistra{
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    /* testo di sinistra sotto dentro la barra superiore*/
+    .TestoSottoSinistra{
+      font-size: 14px;
+      font-weight: normal;
+      opacity: 0.8;
+    }
+    /* testo di destra sopra dentro la barra superiore*/
+    .TestoSopraDestra{
+      font-size: 18px;
+      font-weight: 600;
+    }
+    /* testo di destra sotto dentro la barra superiore*/
+    .TestoSottoDestra{
+      font-size: 14px;
+      font-weight: normal;
+      opacity: 0.8;
     }
 
     /* Container principale */
@@ -66,7 +107,7 @@
     }
 
     /* Barra Bottoni */
-    .BottoniPrincipali {
+    .BarraBottoniPrincipali {
       /* Disposizione bottoni in fila*/
       display: flex;
       justify-content: center;
@@ -80,7 +121,7 @@
     }
 
     /* Bottoni */
-    .BottoniPrincipali button {
+    .BarraBottoniPrincipali button {
       padding: 18px 18px;
       font-size: 15px;
       font-weight: 600;
@@ -91,7 +132,7 @@
     }
 
     /* hover dei Bottoni */
-    .BottoniPrincipali button:hover {
+    .BarraBottoniPrincipali button:hover {
       /* nero al passaggio del cursore*/
       background: #000000;
     }
@@ -201,6 +242,21 @@
       /* nascosto */
       display: none;
     }
+
+    .BottoniContainerSezioni{
+     padding: 18px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 25px;
+      background: #494949;
+      color: white;
+      
+    }
+
+    .BottoniContainerSezioni:hover{
+      background: #000000;
+    }
   </style>
 </head>
 
@@ -210,12 +266,23 @@
 
     <!-- Span per mandare automaticamente a capo i testi dentro la barra-->
 
-    <span class="TestoDiCentro"> Bell-Manager </span>
-    <!-- testo da modificare con segnaposto-->
-    <span class="TestoDiSinistra"> 9:50</span>
-    <!-- testo da modificare con lable-->
-    <span class="TestoDiDestra"> Intervallo - 10:00</span>
+    <!-- Testo al centro -->
+    <span class="TestoDiCentro">Bell-Manager</span>
+
+    <!-- Sezione sinistra- testi da modificare con segnaposto-->
+    <div class="TestoDiSinistra">
+      <div class="TestoSopraSinistra">9:50</div>
+      <div class="TestoSottoSinistra">24/09/2025</div>
+    </div>
+
+    <!-- Sezione destra - testi da modificare con lable-->
+    <div class="TestoDiDestra">
+      <div class="TestoSopraDestra">Intervallo</div>
+      <div class="TestoSottoDestra">10:00</div>
+    </div>
+
   </div>
+
 
   <!-- div container principale -->
   <div class="containerPrincipale">
@@ -223,7 +290,7 @@
     <!-- testo da modificare con una lable -->
     <h2>Nome Scuola</h2>
 
-    <div class="BottoniPrincipali">
+    <div class="BarraBottoniPrincipali">
       <button id="btn_Aggiungi">
         <i class="fa-solid fa-plus"></i>
         Aggiungi
@@ -246,13 +313,27 @@
   <!-- div container sezione aggiungi -->
   <div class="ContainerAggiungi">
     <h2>Aggiungi Campanella</h2>
-
+    <button class="BarraBottoniPrincipali" id="">
+      Salva
+    </button>
+    <button class="BarraBottoniPrincipali" id="">
+      Chiudi
+    </button>
 
   </div>
 
   <!-- div container sezione Impostazioni -->
   <div class="ContainerImpostazione">
     <h2>Impostazioni</h2>
+    <button class="BarraBottoniPrincipali" id="">
+      Salva
+    </button>
+    <button class="BarraBottoniPrincipali" id="">
+      Salva
+    </button>
+    <button class="BarraBottoniPrincipali" id="">
+      Chiudi
+    </button>
 
 
   </div>
@@ -260,12 +341,18 @@
   <!-- div container sezione Login -->
   <div class="ContainerLogin">
     <h2>Login</h2>
+    <button class="BarraBottoniPrincipali" id="">
+      Login
+    </button>
+    <button class="BarraBottoniPrincipali" id="">
+      Chiudi
+    </button>
 
 
   </div>
 
   <script>
-    // logica per mostrare e chiudere i container per le sezioni login,impostazioni,aggiugi
+  // logica per mostrare e chiudere i container per le sezioni login,impostazioni,aggiugi
 
     // seleziono i container della varie sezioni login,impostazioni,aggiugi
     const ContainerAggiugi = document.querySelector('.ContainerAggiungi');
