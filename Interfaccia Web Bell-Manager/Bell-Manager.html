@@ -63,6 +63,7 @@
       font-size: 18px;
       white-space: nowrap;
       margin-left: 20px;
+      
 
     }
 
@@ -120,7 +121,7 @@
       border: 1px solid rgba(0, 128, 255, 0.15);
     }
 
-    /* Bottoni */
+    /* Bottoni principali nella barra dei bottoni */
     .BarraBottoniPrincipali button {
       padding: 18px 18px;
       font-size: 15px;
@@ -243,19 +244,40 @@
       display: none;
     }
 
+    /* Bottoni nel container delle sezioni login,impostazioni,aggiungi */
     .BottoniContainerSezioni{
-     padding: 18px 18px;
+      padding: 18px 18px;
       font-size: 15px;
       font-weight: 600;
       border: none;
-      border-radius: 25px;
-      background: #494949;
       color: white;
-      
+      background-color: #494949;
+      border-radius: 10%;
+      margin: 8px;
+      flex-wrap: wrap;
     }
 
+     /* hover per i bottoni */
     .BottoniContainerSezioni:hover{
       background: #000000;
+    }
+
+    /* Bottone chiudi del container delle sezioni login,impostazioni,aggiungi */
+    .BottoneContainerSezioniChiudi{
+      padding: 18px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      color: white;
+      background-color: #494949;
+      border-radius: 10%;
+      margin: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* hover per il bottone */
+    .BottoneContainerSezioniChiudi:hover{
+      background: #ff0000c9;
     }
   </style>
 </head>
@@ -271,12 +293,14 @@
 
     <!-- Sezione sinistra- testi da modificare con segnaposto-->
     <div class="TestoDiSinistra">
+      <i class="fa-regular fa-clock fa-spin"></i>
       <div class="TestoSopraSinistra">9:50</div>
       <div class="TestoSottoSinistra">24/09/2025</div>
     </div>
 
     <!-- Sezione destra - testi da modificare con lable-->
     <div class="TestoDiDestra">
+      <i class="fa-solid fa-bell fa-shake"></i>
       <div class="TestoSopraDestra">Intervallo</div>
       <div class="TestoSottoDestra">10:00</div>
     </div>
@@ -313,10 +337,12 @@
   <!-- div container sezione aggiungi -->
   <div class="ContainerAggiungi">
     <h2>Aggiungi Campanella</h2>
-    <button class="BarraBottoniPrincipali" id="">
+    <button class="BottoniContainerSezioni" id="">
+      <i class="fa-solid fa-sd-card"></i>
       Salva
     </button>
-    <button class="BarraBottoniPrincipali" id="">
+    <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiAgg">
+      <i class="fa-solid fa-xmark"></i>
       Chiudi
     </button>
 
@@ -325,13 +351,12 @@
   <!-- div container sezione Impostazioni -->
   <div class="ContainerImpostazione">
     <h2>Impostazioni</h2>
-    <button class="BarraBottoniPrincipali" id="">
+    <button class="BottoniContainerSezioni" id="">
+      <i class="fa-solid fa-sd-card"></i>
       Salva
     </button>
-    <button class="BarraBottoniPrincipali" id="">
-      Salva
-    </button>
-    <button class="BarraBottoniPrincipali" id="">
+    <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiImp">
+      <i class="fa-solid fa-xmark"></i>
       Chiudi
     </button>
 
@@ -341,10 +366,12 @@
   <!-- div container sezione Login -->
   <div class="ContainerLogin">
     <h2>Login</h2>
-    <button class="BarraBottoniPrincipali" id="">
+    <button class="BottoniContainerSezioni" id="">
+      <i class="fa-solid fa-circle-user"></i>
       Login
     </button>
-    <button class="BarraBottoniPrincipali" id="">
+    <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiLog">
+      <i class="fa-solid fa-xmark"></i>
       Chiudi
     </button>
 
@@ -388,6 +415,33 @@
       ContainerLogin.style.display = 'none';
       // mostra il container
       ContainerLogin.style.display = 'block';
+
+    };
+
+     // funzione per chiudere il container aggiugi
+    document.getElementById('btn_ChiudiAgg').onclick = () => {
+      // togli sfondo nero della pagina
+      SfondoPagina.style.display = 'none';
+      // togli il container
+      ContainerAggiugi.style.display = 'none';
+
+    };
+
+    // funzione per chiudere il container impostazioni
+    document.getElementById('btn_ChiudiImp').onclick = () => {
+      // togli sfondo nero della pagina
+      SfondoPagina.style.display = 'none';
+      // togli il container
+      ContainerImpostazione.style.display = 'none';
+
+    };
+
+    // funzione per chiudere il container login
+    document.getElementById('btn_ChiudiLog').onclick = () => {
+      // togli sfondo nero della pagina
+      SfondoPagina.style.display = 'none';
+      // togli il container
+      ContainerLogin.style.display = 'none';
 
     };
 
