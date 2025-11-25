@@ -3,6 +3,7 @@
 
 <head>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <title>Bell-Manager</title>
 
   <style>
@@ -26,27 +27,27 @@
       font-weight: bold;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
       /* centro il testo*/
-      position: relative; 
+      position: relative;
     }
 
     /* testo di centro dentro la barra superiore*/
     .TestoDiCentro {
       /* posizione testo centrato*/
-      position: absolute; 
+      position: absolute;
       left: 50%;
       transform: translateX(-50%);
       white-space: nowrap;
-      
+
     }
 
     /* sezione testo di sinistra dentro la barra superiore*/
     .TestoDiSinistra {
       /* layout verticale*/
-      display: flex;  
+      display: flex;
       /* incolonna le due righe*/
-      flex-direction: column; 
+      flex-direction: column;
       /* centra il testo*/
-      align-items: center;    
+      align-items: center;
       font-size: 18px;
       white-space: nowrap;
       margin-left: 20px;
@@ -63,29 +64,31 @@
       font-size: 18px;
       white-space: nowrap;
       margin-left: 20px;
-      
+
 
     }
 
     /* testo di sinistra sopra dentro la barra superiore*/
-    .TestoSopraSinistra{
+    .TestoSopraSinistra {
       font-size: 18px;
       font-weight: 600;
     }
 
     /* testo di sinistra sotto dentro la barra superiore*/
-    .TestoSottoSinistra{
+    .TestoSottoSinistra {
       font-size: 14px;
       font-weight: normal;
       opacity: 0.8;
     }
+
     /* testo di destra sopra dentro la barra superiore*/
-    .TestoSopraDestra{
+    .TestoSopraDestra {
       font-size: 18px;
       font-weight: 600;
     }
+
     /* testo di destra sotto dentro la barra superiore*/
-    .TestoSottoDestra{
+    .TestoSottoDestra {
       font-size: 14px;
       font-weight: normal;
       opacity: 0.8;
@@ -180,8 +183,12 @@
       transform: translate(-50%, -50%);
       /* sopra allo sfondo nero*/
       z-index: 1000;
-      /* nascosto */
+
       display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 15px;
     }
 
     /* container sezione impostazione*/
@@ -214,38 +221,8 @@
       display: none;
     }
 
-    /* container sezione login*/
-    .ContainerLogin {
-      /* Larghezza responsiva */
-      width: 90%;
-      /* Larghezza massima*/
-      max-width: 600px;
-      min-height: auto;
-      background: rgba(255, 255, 255, 0.85);
-      padding: 25px;
-      text-align: center;
-      font-size: 15px;
-      font-weight: 600;
-      border-radius: 18px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-      /* Sfondo sfocato dietro */
-      backdrop-filter: blur(8px);
-      /* fissato al centro*/
-      position: fixed;
-      /* fissato verticalmente al centro */
-      top: 50%;
-      /* fissato orizzontalmente al centro */
-      left: 50%;
-      /* centrato*/
-      transform: translate(-50%, -50%);
-      /* sopra allo sfondo nero*/
-      z-index: 1000;
-      /* nascosto */
-      display: none;
-    }
-
     /* Bottoni nel container delle sezioni login,impostazioni,aggiungi */
-    .BottoniContainerSezioni{
+    .BottoniContainerSezioni {
       padding: 18px 18px;
       font-size: 15px;
       font-weight: 600;
@@ -257,13 +234,13 @@
       flex-wrap: wrap;
     }
 
-     /* hover per i bottoni */
-    .BottoniContainerSezioni:hover{
+    /* hover per i bottoni */
+    .BottoniContainerSezioni:hover {
       background: #000000;
     }
 
     /* Bottone chiudi del container delle sezioni login,impostazioni,aggiungi */
-    .BottoneContainerSezioniChiudi{
+    .BottoneContainerSezioniChiudi {
       padding: 18px 18px;
       font-size: 15px;
       font-weight: 600;
@@ -276,8 +253,28 @@
     }
 
     /* hover per il bottone */
-    .BottoneContainerSezioniChiudi:hover{
+    .BottoneContainerSezioniChiudi:hover {
       background: #ff0000c9;
+    }
+
+    .giorni-settimana {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 8px 20px;
+      margin-top: 10px;
+      text-align: left;
+    }
+
+    .giorni-settimana label {
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .BottoniRiga {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      width: 100%;
     }
   </style>
 </head>
@@ -293,14 +290,12 @@
 
     <!-- Sezione sinistra- testi da modificare con segnaposto-->
     <div class="TestoDiSinistra">
-      <i class="fa-regular fa-clock fa-spin"></i>
       <div class="TestoSopraSinistra">9:50</div>
       <div class="TestoSottoSinistra">24/09/2025</div>
     </div>
 
     <!-- Sezione destra - testi da modificare con lable-->
     <div class="TestoDiDestra">
-      <i class="fa-solid fa-bell fa-shake"></i>
       <div class="TestoSopraDestra">Intervallo</div>
       <div class="TestoSottoDestra">10:00</div>
     </div>
@@ -323,10 +318,6 @@
         <i class="fa-solid fa-gear"></i>
         Impostazioni
       </button>
-      <button id="btn_Login">
-        <i class="fa-solid fa-circle-user"></i>
-        Login
-      </button>
     </div>
 
   </div>
@@ -336,16 +327,42 @@
 
   <!-- div container sezione aggiungi -->
   <div class="ContainerAggiungi">
-    <h2>Aggiungi Campanella</h2>
-    <button class="BottoniContainerSezioni" id="">
-      <i class="fa-solid fa-sd-card"></i>
-      Salva
-    </button>
-    <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiAgg">
-      <i class="fa-solid fa-xmark"></i>
-      Chiudi
-    </button>
 
+    <h2>Aggiungi Campanella</h2>
+
+  </div class="BottoniRiga">
+  <button class="BottoniContainerSezioni" id="">
+    <i class="fa-solid fa-sd-card"></i>
+    Salva
+  </button>
+
+  <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiAgg">
+    <i class="fa-solid fa-xmark"></i>
+    Chiudi
+  </button>
+
+  <label>Ora:</label>
+  <input type="time" id="OraCampanella">
+
+  <label for="TipoDiCampanella">Tipo:</label>
+  <input type="text" id="TipoDiCampanella">
+
+  <label>Giorni della settimana:</label>
+
+  <div class="giorni-settimana">
+    <label><input type="checkbox" value="lun"> Lun</label>
+    <label><input type="checkbox" value="mar"> Mar</label>
+    <label><input type="checkbox" value="mer"> Mer</label>
+    <label><input type="checkbox" value="gio"> Gio</label>
+    <label><input type="checkbox" value="ven"> Ven</label>
+    <label><input type="checkbox" value="sab"> Sab</label>
+    <label><input type="checkbox" value="dom"> Dom</label>
+  </div>
+
+  <label for="DurataCampanella">Durata in secondi:</label>
+  <input type="number" id="DurataCampanella">
+
+  </div>
   </div>
 
   <!-- div container sezione Impostazioni -->
@@ -363,28 +380,14 @@
 
   </div>
 
-  <!-- div container sezione Login -->
-  <div class="ContainerLogin">
-    <h2>Login</h2>
-    <button class="BottoniContainerSezioni" id="">
-      <i class="fa-solid fa-circle-user"></i>
-      Login
-    </button>
-    <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiLog">
-      <i class="fa-solid fa-xmark"></i>
-      Chiudi
-    </button>
-
-
   </div>
 
   <script>
-  // logica per mostrare e chiudere i container per le sezioni login,impostazioni,aggiugi
+    // logica per mostrare e chiudere i container per le sezioni login,impostazioni,aggiugi
 
     // seleziono i container della varie sezioni login,impostazioni,aggiugi
     const ContainerAggiugi = document.querySelector('.ContainerAggiungi');
     const ContainerImpostazione = document.querySelector('.ContainerImpostazione');
-    const ContainerLogin = document.querySelector('.ContainerLogin');
     const SfondoPagina = document.querySelector('.SfondoPagina');
 
     // funzione per mostrare il container aggiugi
@@ -407,18 +410,8 @@
       ContainerImpostazione.style.display = 'block';
 
     };
-    // funzione per mostrare il container login
-    document.getElementById('btn_Login').onclick = () => {
-      // mostra sfondo nero della pagina
-      SfondoPagina.style.display = 'block';
-      // reset display
-      ContainerLogin.style.display = 'none';
-      // mostra il container
-      ContainerLogin.style.display = 'block';
 
-    };
-
-     // funzione per chiudere il container aggiugi
+    // funzione per chiudere il container aggiugi
     document.getElementById('btn_ChiudiAgg').onclick = () => {
       // togli sfondo nero della pagina
       SfondoPagina.style.display = 'none';
@@ -433,15 +426,6 @@
       SfondoPagina.style.display = 'none';
       // togli il container
       ContainerImpostazione.style.display = 'none';
-
-    };
-
-    // funzione per chiudere il container login
-    document.getElementById('btn_ChiudiLog').onclick = () => {
-      // togli sfondo nero della pagina
-      SfondoPagina.style.display = 'none';
-      // togli il container
-      ContainerLogin.style.display = 'none';
 
     };
 
