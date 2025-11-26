@@ -262,7 +262,10 @@
       grid-template-columns: repeat(3, auto);
       gap: 8px 20px;
       margin-top: 10px;
-      text-align: left;
+      text-align: center;
+       text-align: center;
+  justify-content: center;
+  align-items: center; 
     }
 
     .giorni-settimana label {
@@ -271,11 +274,48 @@
     }
 
     .BottoniRiga {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      width: 100%;
+     display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
     }
+
+    .ContainerImpostazione input{
+      width: 80%;
+      max-width: 350px;
+      padding: 10px;
+      border-radius: 10px;
+       border: 1px solid #ccc;
+      font-size: 15px;
+      text-align: center;
+    }
+    .ContainerAggiungi input{
+     width: 140px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  text-align: center;
+    }
+
+/* Riga orario + durata affiancati */
+.rigaOrarioDurata {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+/* blocchi input */
+.bloccoInput {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  justify-content: center;
+  align-items: center; 
+}
+
   </style>
 </head>
 
@@ -302,53 +342,52 @@
 
   </div>
 
+<!-- div container principale -->
+<div class="containerPrincipale">
 
-  <!-- div container principale -->
-  <div class="containerPrincipale">
+  <h2>Nome Scuola</h2>
 
-    <!-- testo da modificare con una lable -->
-    <h2>Nome Scuola</h2>
-
-    <div class="BarraBottoniPrincipali">
-      <button id="btn_Aggiungi">
-        <i class="fa-solid fa-plus"></i>
-        Aggiungi
-      </button>
-      <button id="btn_Impostazioni">
-        <i class="fa-solid fa-gear"></i>
-        Impostazioni
-      </button>
-    </div>
-
+  <div class="BarraBottoniPrincipali">
+    <button id="btn_Aggiungi">
+      <i class="fa-solid fa-plus"></i>
+      Aggiungi
+    </button>
+    <button id="btn_Impostazioni">
+      <i class="fa-solid fa-gear"></i>
+      Impostazioni
+    </button>
   </div>
 
-  <!-- div per sfondo della pagina-->
-  <div class="SfondoPagina"> </div>
+</div>
 
-  <!-- div container sezione aggiungi -->
-  <div class="ContainerAggiungi">
+<!-- Sfondo nero -->
+<div class="SfondoPagina"> </div>
 
-    <h2>Aggiungi Campanella</h2>
+<div class="ContainerAggiungi">
 
-  </div class="BottoniRiga">
-  <button class="BottoniContainerSezioni" id="">
-    <i class="fa-solid fa-sd-card"></i>
-    Salva
-  </button>
+  <h2>Aggiungi Campanella</h2>
 
-  <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiAgg">
-    <i class="fa-solid fa-xmark"></i>
-    Chiudi
-  </button>
+  <!-- Riga orario + durata -->
+  <div class="rigaOrarioDurata">
+    <div class="bloccoInput">
+      <label>Ora:</label>
+      <input type="time" id="OraCampanella">
+    </div>
 
-  <label>Ora:</label>
-  <input type="time" id="OraCampanella">
+    <div class="bloccoInput">
+      <label>Durata(sec):</label>
+      <input type="number" id="DurataCampanella">
+    </div>
+  </div>
 
-  <label for="TipoDiCampanella">Tipo:</label>
-  <input type="text" id="TipoDiCampanella">
+<div class="bloccoInput">
+  <label>Titolo:</label>
+  <input type="text" id="TitoloCampanella">
+</div>
 
+
+  <!-- Giorni della settimana -->
   <label>Giorni della settimana:</label>
-
   <div class="giorni-settimana">
     <label><input type="checkbox" value="lun"> Lun</label>
     <label><input type="checkbox" value="mar"> Mar</label>
@@ -359,28 +398,20 @@
     <label><input type="checkbox" value="dom"> Dom</label>
   </div>
 
-  <label for="DurataCampanella">Durata in secondi:</label>
-  <input type="number" id="DurataCampanella">
-
-  </div>
-  </div>
-
-  <!-- div container sezione Impostazioni -->
-  <div class="ContainerImpostazione">
-    <h2>Impostazioni</h2>
-    <button class="BottoniContainerSezioni" id="">
+  <!-- Bottoni -->
+  <div class="BottoniRiga">
+    <button class="BottoniContainerSezioni">
       <i class="fa-solid fa-sd-card"></i>
       Salva
     </button>
-    <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiImp">
+
+    <button class="BottoneContainerSezioniChiudi" id="btn_ChiudiAgg">
       <i class="fa-solid fa-xmark"></i>
       Chiudi
     </button>
-
-
   </div>
 
-  </div>
+</div>
 
   <script>
     // logica per mostrare e chiudere i container per le sezioni login,impostazioni,aggiugi
