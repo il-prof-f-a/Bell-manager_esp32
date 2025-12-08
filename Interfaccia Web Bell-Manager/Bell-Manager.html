@@ -253,17 +253,22 @@
       background: #ff0000c9;
     }
 
+    /* label per giorni della settimana*/
     .giorni-settimana label {
       font-size: 15px;
     }
 
+    /* bottoni riga aggiugi e impostazioni*/
     .BottoniRiga {
+      /* layout in fila*/
       display: flex;
       justify-content: center;
+      /* distanza tra i bottoni*/
       gap: 20px;
       margin-top: 20px;
     }
 
+    /* elementi di controllo nei container impostazione*/
     .ContainerImpostazione input {
       width: 80%;
       max-width: 350px;
@@ -274,6 +279,7 @@
       text-align: center;
     }
 
+    /* elementi di controllo nei container aggiungi*/
     .ContainerAggiungi input {
       width: 140px;
       padding: 10px;
@@ -320,6 +326,7 @@
       margin-top: 6px;
     }
 
+    /* Checkbox sezione impostazioni */
     .checkbox-imp {
       display: flex;
       align-items: center;
@@ -445,6 +452,7 @@
       transform: translateX(20px);
     }
 
+    /* Footer MadeWith */
     .MadeWith {
       position: absolute;
       bottom: 10px;
@@ -456,6 +464,102 @@
       margin-top: 30px;
       text-align: center;
       letter-spacing: 0.5px;
+
+    }
+
+    /* Tabella campanelle */
+    .TabellaCampanelle {
+      width: 100%;
+      display: flex;
+      /* centrata orizzontalmente */
+      justify-content: center;
+      margin-top: 30px;
+      padding: 0 10px;
+      border-radius: 30px;
+      padding: 10px;
+    }
+
+    .tabella {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 15px;
+      text-align: center;
+      transition: all 0.3s ease;
+      border-radius: 20px;
+    }
+
+    .TabellaCampanelleScroll {
+      max-height: 400px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 5px;
+      border-radius: 20px;
+    }
+
+    .TabellaCampanelleScroll.scroll-attivo {
+      overflow-x: auto;
+    }
+
+    .tabella thead {
+      background: #f1f1f1;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+
+    .tabella th {
+      padding: 14px 18px;
+      border-bottom: 1px solid #e6e6e6;
+    }
+
+    .tabella td {
+      padding: 14px 18px;
+      border-bottom: 1px solid #e6e6e6;
+    }
+
+    .tabella tr:hover {
+      /* cambio colore alla riga al passaggio */
+      background-color: #f7faff;
+    }
+
+    .azioni {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* Bottoni della tabella*/
+    .btn_Modifica {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 6px;
+      transition: 0.3s;
+    }
+
+    .btn_Elimina {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 6px;
+      transition: 0.3s;
+    }
+
+    /* Hover bottoni tabella */
+    .btn_Modifica:hover {
+
+      color: #0180ff;
+
+    }
+
+    .btn_Elimina:hover {
+
+      color: #ff0000c9;
 
     }
   </style>
@@ -495,6 +599,7 @@
 
     <h2>Nome Scuola</h2>
 
+    <!-- Barra con i due bottoni principali -->
     <div class="BarraBottoniPrincipali">
       <button id="btn_Aggiungi">
         <i class="fa-solid fa-plus"></i>
@@ -505,16 +610,34 @@
         Impostazioni
       </button>
     </div>
+    <!-- Container tabella campanelle -->
+    <div class="TabellaCampanelleScroll">
+      <div class="TabellaCampanelle">
+        <!-- tabella -->
+        <table class="tabella">
+          <!-- intestazione tabella-->
+          <thead>
+            <tr>
+              <th>Ora</th>
+              <th>Giorni</th>
+              <th>Tipo</th>
+              <th>Durata</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <!-- Corpo tabella popolata dinamicamente-->
+          <tbody id="CorpoTabellaCampanelle">
+
+
+          </tbody>
+        </table>
+
+      </div>
+    </div>
 
     <div class="MadeWith">
       Made with ❤️ in 🇮🇹
     </div>
-
-
-
-
-
-
   </div>
 
   <!-- Sfondo nero -->
@@ -524,68 +647,69 @@
 
     <h2>Aggiungi Campanella</h2>
 
-    <!-- Riga orario + durata -->
+    <!-- Riga orario + durata sezione aggiungi-->
     <div class="rigaOrarioDurata">
+      <!-- Blocco input ora sezione aggiungi-->
       <div class="bloccoInput">
         <label>Ora:</label>
         <input type="time" id="OraCampanella">
       </div>
-
+      <!-- Blocco input durata sezione aggiungi-->
       <div class="bloccoInput">
         <label>Durata(sec):</label>
         <input type="number" id="DurataCampanella">
       </div>
     </div>
-
+    <!-- Blocco input tipo sezione aggiungi-->
     <div class="bloccoInput">
       <label>Tipo:</label>
       <input type="text" id="TitoloCampanella">
     </div>
 
 
-    <!-- Giorni della settimana -->
+    <!-- sewitch Giorni della settimana sezione aggiungi -->
     <label>Giorni della settimana:</label>
 
     <div class="giorni-switch">
       <label class="switch-giorni">Lun
-        <input type="checkbox" value="lun">
+        <input type="checkbox" id="chk_lun">
         <span class="slider-giorni"></span>
       </label>
 
       <label class="switch-giorni">Mar
-        <input type="checkbox" value="mar">
+        <input type="checkbox" id="chk_mar">
         <span class="slider-giorni"></span>
       </label>
 
       <label class="switch-giorni">Mer
-        <input type="checkbox" value="mer">
+        <input type="checkbox" id="chk_mer">
         <span class="slider-giorni"></span>
       </label>
 
       <label class="switch-giorni">Gio
-        <input type="checkbox" value="gio">
+        <input type="checkbox" id="chk_gio">
         <span class="slider-giorni"></span>
       </label>
 
       <label class="switch-giorni">Ven
-        <input type="checkbox" value="ven">
+        <input type="checkbox" id="chk_ven">
         <span class="slider-giorni"></span>
       </label>
 
       <label class="switch-giorni">Sab
-        <input type="checkbox" value="sab">
+        <input type="checkbox" id="chk_sab">
         <span class="slider-giorni"></span>
       </label>
 
       <label class="switch-giorni">Dom
-        <input type="checkbox" value="dom">
+        <input type="checkbox" id="chk_dom">
         <span class="slider-giorni"></span>
       </label>
     </div>
 
     <!-- Bottoni -->
     <div class="BottoniRiga">
-      <button class="BottoniContainerSezioni">
+      <button class="BottoniContainerSezioni" id="btn_SalvaAgg">
         <i class="fa-solid fa-sd-card"></i>
         Salva
       </button>
@@ -597,18 +721,18 @@
     </div>
 
   </div>
-
+  <!-- Container Sezione Impostazioni-->
   <div class="ContainerImpostazione">
 
     <h2>Impostazioni</h2>
-
+    <!-- Input nome istituzione -->
     <div class="bloccoInputImp">
 
       <label>Aggiungi nome Istituzione:</label>
       <input type="text" id="TitoloIstituzione" class="inputImpostazioni">
 
     </div>
-
+    <!-- Input switch disattiva le campanelle-->
     <div class="bloccoInputImp">
       <label>Disattiva tutte le campanelle:</label>
 
@@ -617,7 +741,7 @@
         <span class="slider"></span>
       </label>
     </div>
-
+    <!-- Input log campanelle-->
     <div class="bloccoInputImp">
       <label>Log Campanelle:</label>
       <ul id="LogCampanelle" class="log">
@@ -685,9 +809,158 @@
       SfondoPagina.style.display = 'none';
       // togli il container
       ContainerImpostazione.style.display = 'none';
-
     };
 
+    // logica per aggiungere le capanelle create alla tabella
+    const CorpoTabellaCampanelle = document.getElementById("CorpoTabellaCampanelle");
+    const btn_SalvaAgg = document.getElementById("btn_SalvaAgg");
+
+
+
+
+    btn_SalvaAgg.onclick = () => {
+      // prendo i dati nei vari elementi della sezione aggiugi
+      const ora = document.getElementById("OraCampanella").value;
+      const durata = document.getElementById("DurataCampanella").value;
+      const tipo = document.getElementById("TitoloCampanella").value;
+      const contenitoreScroll = document.querySelector(".TabellaCampanelleScroll");
+
+      // Controllo dei campi obbligatori
+      if (ora === "" || durata === "" || tipo === "") {
+        alert("Compila tutti i campi prima di salvare!");
+        // Blocca il salvataggio
+        return;
+      }
+
+      // Controllo giorni
+      if (
+        !chk_lun.checked &&
+        !chk_mar.checked &&
+        !chk_mer.checked &&
+        !chk_gio.checked &&
+        !chk_ven.checked &&
+        !chk_sab.checked &&
+        !chk_dom.checked
+      ) {
+        alert("Devi selezionare almeno un giorno della settimana!");
+        return;
+      }
+
+      // prendo i giorni selezionati nei check
+
+      // variabile dei giorni selezionati
+      var giorniSelezionati = "";
+
+      // Lunedì
+      if (document.getElementById("chk_lun").checked) {
+        giorniSelezionati += "Lun ";
+      }
+
+      // Martedì
+      if (document.getElementById("chk_mar").checked) {
+        giorniSelezionati += "Mar ";
+      }
+
+      // Mercoledì
+      if (document.getElementById("chk_mer").checked) {
+        giorniSelezionati += "Mer ";
+      }
+
+      // Giovedì
+      if (document.getElementById("chk_gio").checked) {
+        giorniSelezionati += "Gio ";
+      }
+
+      // Venerdì
+      if (document.getElementById("chk_ven").checked) {
+        giorniSelezionati += "Ven ";
+      }
+
+      // Sabato
+      if (document.getElementById("chk_sab").checked) {
+        giorniSelezionati += "Sab ";
+      }
+
+      // Domenica
+      if (document.getElementById("chk_dom").checked) {
+        giorniSelezionati += "Dom ";
+      }
+
+      // Se nessun giorno è selezionato
+      if (giorniSelezionati === "") {
+        giorniSelezionati = "Nessuno";
+      }
+      // metto nella stringa i trattini per separare i giorni
+      giorniSelezionati = giorniSelezionati.replaceAll(" ", " ").trim();
+
+      // creo le nuove righe nella tabella con i dati presi dai vari imput
+      const nuovaRiga = document.createElement("tr");
+
+      // creo e imposto l html nella riga
+      nuovaRiga.innerHTML =
+        `
+        <td>${ora}</td>
+        <td>${giorniSelezionati}</td>
+        <td>${tipo}</td>
+        <td>${durata}s</td>
+
+        <td class="azioni">
+            <label class="switch-giorni">
+                <input type="checkbox" checked>
+                <span class="slider-giorni"></span>
+            </label>
+
+            <button class="btn_Modifica">
+                <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+
+            <button class="btn_Elimina">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </td>
+    `;
+
+      // aggiungo la riga creata nella tabella
+      CorpoTabellaCampanelle.appendChild(nuovaRiga);
+
+
+      // bottone elimina nella riga
+      nuovaRiga.querySelector(".btn_Elimina").onclick = () => {
+
+        // Popup di conferma del browser
+        const conferma = confirm("Sei sicuro di voler eliminare questa campanella?");
+
+        if (conferma) {
+          nuovaRiga.remove();
+        }
+
+      };
+
+
+      // barra di scorrimento orizzontale solo se ce piu di una riga
+      if (CorpoTabellaCampanelle.children.length > 0) {
+
+        contenitoreScroll.classList.add("scroll-attivo");
+
+      }
+
+      // chiudo la finestra aggiungi
+      document.getElementById('btn_ChiudiAgg').click();
+
+      // pulizia campi di testo dopo il salvataggio
+      document.getElementById("OraCampanella").value = "";
+      document.getElementById("DurataCampanella").value = "";
+      document.getElementById("TitoloCampanella").value = "";
+
+      // deseleziona i checkbox
+      document.getElementById("chk_lun").checked = false;
+      document.getElementById("chk_mar").checked = false;
+      document.getElementById("chk_mer").checked = false;
+      document.getElementById("chk_gio").checked = false;
+      document.getElementById("chk_ven").checked = false;
+      document.getElementById("chk_sab").checked = false;
+      document.getElementById("chk_dom").checked = false;
+    };
 
   </script>
 
