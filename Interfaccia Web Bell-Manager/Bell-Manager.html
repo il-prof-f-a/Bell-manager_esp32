@@ -923,7 +923,6 @@
       // aggiungo la riga creata nella tabella
       CorpoTabellaCampanelle.appendChild(nuovaRiga);
 
-
       // bottone elimina nella riga
       nuovaRiga.querySelector(".btn_Elimina").onclick = () => {
 
@@ -936,6 +935,65 @@
 
       };
 
+      // bottone modifica elementi nella riga
+      nuovaRiga.querySelector(".btn_Modifica").onclick = () => {
+
+        // apro il container e lo sfondo
+        SfondoPagina.style.display = 'block';
+        ContainerAggiugi.style.display = 'block';
+
+        // carico i dati della riga ai campi di testo del container
+        document.getElementById("OraCampanella").value = nuovaRiga.children[0].textContent;
+        document.getElementById("TitoloCampanella").value = nuovaRiga.children[2].textContent;
+        document.getElementById("DurataCampanella").value = parseInt(nuovaRiga.children[3].textContent);
+
+        // carico i giorni selezionati nelle chekbox
+        const giorni = nuovaRiga.children[1].textContent.split(" ");
+        document.getElementById("chk_lun").checked = giorni.includes("Lun");
+        document.getElementById("chk_mar").checked = giorni.includes("Mar");
+        document.getElementById("chk_mer").checked = giorni.includes("Mer");
+        document.getElementById("chk_gio").checked = giorni.includes("Gio");
+        document.getElementById("chk_ven").checked = giorni.includes("Ven");
+        document.getElementById("chk_sab").checked = giorni.includes("Sab");
+        document.getElementById("chk_dom").checked = giorni.includes("Dom");
+
+        // trasformo il bottone salva solo per aggiornare la riga 
+        btn_SalvaAgg.onclick = () => {
+
+          // verifico che i campi non siano vuoti 
+          if (document.getElementById("OraCampanella").value === "" || document.getElementById("DurataCampanella").value === "" || document.getElementById("TitoloCampanella").value === "") {
+            alert("Compila tutti i campi!");
+            return;
+          }
+
+          // Aggiorna i dati della riga
+          nuovaRiga.children[0].textContent = document.getElementById("OraCampanella").value;
+          nuovaRiga.children[1].textContent = [
+            document.getElementById("chk_lun").checked ? "Lun" : null,
+            document.getElementById("chk_mar").checked ? "Mar" : null,
+            document.getElementById("chk_mer").checked ? "Mer" : null,
+            document.getElementById("chk_gio").checked ? "Gio" : null,
+            document.getElementById("chk_ven").checked ? "Ven" : null,
+            document.getElementById("chk_sab").checked ? "Sab" : null,
+            document.getElementById("chk_dom").checked ? "Dom" : null
+          ].filter(g => g !== null).join(" - ") || "Nessuno";
+          nuovaRiga.children[2].textContent = document.getElementById("TitoloCampanella").value;
+          nuovaRiga.children[3].textContent = document.getElementById("DurataCampanella").value + "s";
+
+          // Chiudo il container e pulisco i campi
+          document.getElementById("btn_ChiudiAgg").click();
+          document.getElementById("OraCampanella").value = "";
+          document.getElementById("DurataCampanella").value = "";
+          document.getElementById("TitoloCampanella").value = "";
+          document.getElementById("chk_lun").checked = false;
+          document.getElementById("chk_mar").checked = false;
+          document.getElementById("chk_mer").checked = false;
+          document.getElementById("chk_gio").checked = false;
+          document.getElementById("chk_ven").checked = false;
+          document.getElementById("chk_sab").checked = false;
+          document.getElementById("chk_dom").checked = false;
+        };
+      };
 
       // barra di scorrimento orizzontale solo se ce piu di una riga
       if (CorpoTabellaCampanelle.children.length > 0) {
