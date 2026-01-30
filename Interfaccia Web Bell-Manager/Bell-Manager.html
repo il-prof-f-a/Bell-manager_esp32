@@ -597,7 +597,7 @@
   <!-- div container principale -->
   <div class="containerPrincipale">
 
-    <h2>Nome Scuola</h2>
+    <h2 id="NomeIstituzione"> </h2>
 
     <!-- Barra con i due bottoni principali -->
     <div class="BarraBottoniPrincipali">
@@ -628,7 +628,6 @@
           <!-- Corpo tabella popolata dinamicamente-->
           <tbody id="CorpoTabellaCampanelle">
 
-
           </tbody>
         </table>
 
@@ -636,7 +635,7 @@
     </div>
 
     <div class="MadeWith">
-      Made with ❤️ in 🇮🇹
+      Made with ❤️
     </div>
   </div>
 
@@ -667,7 +666,7 @@
     </div>
 
 
-    <!-- sewitch Giorni della settimana sezione aggiungi -->
+    <!-- switch Giorni della settimana sezione aggiungi -->
     <label>Giorni della settimana:</label>
 
     <div class="giorni-switch">
@@ -741,6 +740,7 @@
         <span class="slider"></span>
       </label>
     </div>
+
     <!-- Input log campanelle-->
     <div class="bloccoInputImp">
       <label>Log Campanelle:</label>
@@ -815,8 +815,8 @@
     const CorpoTabellaCampanelle = document.getElementById("CorpoTabellaCampanelle");
     const btn_SalvaAgg = document.getElementById("btn_SalvaAgg");
 
-
-
+    // variabile globale per lo stato di ogni campanella
+    const statoCampanelle = [];
 
     btn_SalvaAgg.onclick = () => {
       // prendo i dati nei vari elementi della sezione aggiugi
@@ -890,6 +890,12 @@
       if (giorniSelezionati === "") {
         giorniSelezionati = "Nessuno";
       }
+
+     // stato iniziale dello switch on
+      statoCampanelle.push(true);
+
+      const indiceCampanella = statoCampanelle.length - 1;
+
       // metto nella stringa i trattini per separare i giorni
       giorniSelezionati = giorniSelezionati.replaceAll(" ", " ").trim();
 
@@ -906,9 +912,9 @@
 
         <td class="azioni">
             <label class="switch-giorni">
-                <input type="checkbox" checked>
-                <span class="slider-giorni"></span>
-            </label>
+            <input type="checkbox" checked>
+            <span class="slider-giorni"></span>
+        </label>
 
             <button class="btn_Modifica">
                 <i class="fa-solid fa-pen-to-square"></i>
@@ -923,17 +929,48 @@
       // aggiungo la riga creata nella tabella
       CorpoTabellaCampanelle.appendChild(nuovaRiga);
 
+    // prendo lo switch della riga
+     const switchRiga = nuovaRiga.querySelector('input[type="checkbox"]');
+
+    // quando l'utente clicca lo switch
+    switchRiga.onchange = () => {
+     statoCampanelle[indiceCampanella] = switchRiga.checked;
+     console.log(
+      "Campanella",
+       indiceCampanella,
+       "stato:",
+       statoCampanelle[indiceCampanella]
+     );
+  };
+
+  function aggiornaIndiciCampanelle() {
+  const righe = document.querySelectorAll("#CorpoTabellaCampanelle tr");
+
+  righe.forEach((riga, index) => {
+    riga.dataset.index = index;
+  });
+}
+
       // bottone elimina nella riga
       nuovaRiga.querySelector(".btn_Elimina").onclick = () => {
 
         // Popup di conferma del browser
         const conferma = confirm("Sei sicuro di voler eliminare questa campanella?");
 
-        if (conferma) {
-          nuovaRiga.remove();
-        }
+        if (!conferma) return;
+
+        // rimuovo lo stato dall'array
+        statoCampanelle.splice(indiceCampanella, 1);
+
+        // rimuovo la riga dalla tabella
+        nuovaRiga.remove();
+
+        // riallineo gli indici delle righe rimaste
+        aggiornaIndiciCampanelle();
 
       };
+
+
 
       // bottone modifica elementi nella riga
       nuovaRiga.querySelector(".btn_Modifica").onclick = () => {
@@ -1019,6 +1056,68 @@
       document.getElementById("chk_sab").checked = false;
       document.getElementById("chk_dom").checked = false;
     };
+
+    // Bottone salva sezione impostazione
+    btn_SalvaImp.onclick = () => { 
+
+      // logica inserimento testo istituzione
+
+      // prendo il testo dalla txtbox
+       const nome = document.getElementById("TitoloIstituzione").value;
+
+       // controllo che non sia vuoto
+       if(nome == ""){
+
+        alert("Inserisci il nome del istituzione");
+        return;
+       }
+
+       // inserisco il testo inserito nella lable
+       document.getElementById("NomeIstituzione").textContent = nome;
+
+       // pulisco la texbox
+      document.getElementById("TitoloIstituzione").value =
+      document.getElementById("NomeIstituzione").textContent;
+
+
+      // logica switch stato campanelle
+
+      const disattivaTutte = document.getElementById("Chk_CampanelleSi").checked;
+
+      // prendo tutte le righe della tabella
+      const righe = document.querySelectorAll("#CorpoTabellaCampanelle tr");
+
+      righe.forEach((riga, index) => {
+
+      // prendo lo switch della riga
+      const switchRiga = riga.querySelector('input[type="checkbox"]');
+
+       if (disattivaTutte) { 
+         // campanelle off
+        statoCampanelle[index] = false;
+
+        switchRiga.checked = false;
+
+       }else 
+       {
+      // campanelle on
+      statoCampanelle[index] = true;
+
+       switchRiga.checked = true;
+
+       }
+
+       console.log(
+       "Riga:", index,
+       "Switch impostazioni:", disattivaTutte,
+       "Stato campanella:", statoCampanelle[index]
+       );
+
+       });
+
+       // chiudo il container impostazioni
+       document.getElementById("btn_ChiudiImp").click();
+     };
 
   </script>
 
