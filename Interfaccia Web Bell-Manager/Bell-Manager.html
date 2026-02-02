@@ -4,6 +4,8 @@
 <head>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1976d2">
   <title>Bell-Manager</title>
 
   <style>
@@ -562,6 +564,199 @@
       color: #ff0000c9;
 
     }
+
+
+    #NomeIstituzione {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  text-align: center;
+}
+
+    /* css per visualizzazione mobile*/
+
+ @media (max-width: 480px) {
+
+    body {
+    font-size: 16px;
+  }
+
+  /* Barra superiore */
+  .barraSuperiore {
+    padding: 12px;
+    font-size: 18px;
+  }
+
+  .TestoDiCentro {
+    font-size: 20px;
+  }
+
+  .TestoDiSinistra,
+  .TestoDiDestra {
+    font-size: 14px;
+    margin-left: 5px;
+  }
+
+  /* Container principale */
+  .containerPrincipale {
+    margin: 10px;
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  /* Barra bottoni */
+  .BarraBottoniPrincipali {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .BarraBottoniPrincipali button {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+  }
+
+  /* Bottoni generici */
+  button {
+    min-height: 44px;
+  }
+
+  /* Container*/
+  .ContainerAggiungi,
+  .ContainerImpostazione {
+    width: 95%;
+    max-width: none;
+    padding: 18px;
+  }
+
+  /* Input */
+  input {
+    font-size: 16px;
+  }
+
+  .inputImpostazioni {
+    width: 100%;
+  }
+
+  /* Riga orario + durata */
+  .rigaOrarioDurata {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Giorni settimana */
+  .giorni-switch {
+    grid-template-columns: repeat(2, auto);
+  }
+
+  /* Tabella */
+  .TabellaCampanelleScroll {
+    overflow-x: auto;
+  }
+
+  .tabella {
+    /* forza scroll orizzontale */
+    min-width: 600px; 
+    font-size: 14px;
+  }
+
+.tabella th {
+  position: relative;
+  color: transparent;
+}
+
+/* ORA */
+.tabella th:nth-child(1)::after {
+  content: "Or.";
+  color: #000;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+/* Giorni*/
+.tabella th:nth-child(2)::after {
+  content: "Gg.";
+  color: #000;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+/* tipo */
+.tabella th:nth-child(3)::after {
+  content: "Tp.";
+  color: #000;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+/* durata */
+.tabella th:nth-child(4)::after {
+  content: "Dur.";
+  color: #000;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Azioni */
+.tabella th:nth-child(5)::after {
+  content: "Act.";
+  color: #000;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+  .tabella th,
+  .tabella td {
+    padding: 10px;
+  }
+
+  /* Footer */
+  .MadeWith {
+    font-size: 12px;
+  }
+
+  #NomeIstituzione {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  text-align: center;
+
+  font-size: clamp(18px, 4vw, 26px);
+}
+
+
+    }
+
+ @media (max-width: 768px) {
+
+ .BarraBottoniPrincipali {
+    gap: 15px;
+  }
+
+  .containerPrincipale {
+    margin: 15px;
+  }
+
+  .tabella {
+    font-size: 14px;
+  }
+    }
+
+#NomeIstituzione {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  text-align: center;
+}
+
+
+
+
   </style>
 </head>
 
