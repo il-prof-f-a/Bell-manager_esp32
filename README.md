@@ -1,4 +1,4 @@
-# Bell-Manager ESP32 v2.0
+# Bell-Manager ESP32 v2.1
 
 Sistema di gestione campanelle per ambienti scolastici o lavorativi, basato su **Sonoff POW Elite 16A (POWR316D)** con interfaccia web integrata e sincronizzazione oraria via NTP.
 
