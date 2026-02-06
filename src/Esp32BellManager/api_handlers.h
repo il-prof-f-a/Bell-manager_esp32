@@ -590,9 +590,9 @@ void handleDebugStatus() {
         "\"ntpSynced\":%s,\"timeSet\":%s,\"currentTime\":\"%s\",\"currentDate\":\"%s\","
         // Bells
         "\"bellCount\":%d,\"globalEnabled\":%s,\"isRinging\":%s,"
-        // Display
-        "\"dispInit\":%s,\"dispOn\":%s,\"dispContent\":\"%s\",\"dispUpdates\":%u,"
-        "\"dispBuffer\":\"%s\",\"dispParams\":\"%s\",\"cmdMode\":%d,\"cmdModeName\":\"%s\",\"testMode\":%s,"
+        // Display TM1621 v4.0
+        "\"dispInit\":%s,\"dispOn\":%s,\"dispContent\":\"%s\",\"dispWrites\":%u,\"dispCmds\":%u,"
+        "\"dispRam\":\"%s\",\"dispBias\":\"0x%02X\",\"dispPulse\":%d,\"testMode\":%s,"
         // Version
         "\"version\":\"%s\""
         "}",
@@ -624,16 +624,16 @@ void handleDebugStatus() {
         bellCount,
         settings.globalEnabled ? "true" : "false",
         systemStatus.isRinging ? "true" : "false",
-        // Display values
-        isDisplayInitialized() ? "true" : "false",
-        isDisplayOn() ? "true" : "false",
+        // Display TM1621 v4.0
+        tm1621_is_initialized() ? "true" : "false",
+        tm1621_is_lcd_on() ? "true" : "false",
         getDisplayContent().c_str(),
-        getDisplayUpdateCount(),
-        getDisplayBufferHex().c_str(),
-        getDisplayParams().c_str(),
-        tm1621_cmd_mode,
-        tm1621_cmd_mode == 0 ? "emsyscode" : "Tasmota",
-        tm1621_test_mode ? "true" : "false",
+        tm1621_get_write_count(),
+        tm1621_get_cmd_count(),
+        tm1621_get_ram_hex().c_str(),
+        tm1621_get_bias(),
+        tm1621_get_pulse_width(),
+        tm1621_is_test_mode() ? "true" : "false",
         // Version
         FIRMWARE_VERSION
     );
@@ -697,201 +697,218 @@ void handleDebugTestDisplay() {
     JsonDocument respDoc;
     respDoc["success"] = true;
 
-    // === Power Control ===
-    if (strcmp(test, "on") == 0) {
-        displayOn();
-        respDoc["message"] = "LCD acceso";
+    // ============================================
+    // TM1621 Driver v4.0 - API basata su datasheet
+    // RAM: 32 x 4 bit (indirizzi 0-31, ogni addr = 4 bit)
+    // ============================================
+
+    // === POWER CONTROL ===
+    if (strcmp(test, "lcd_on") == 0) {
+        tm1621_lcd_on_cmd();
+        respDoc["message"] = "LCD ON";
     }
-    else if (strcmp(test, "off") == 0) {
-        displayOff();
-        respDoc["message"] = "LCD spento";
-    }
-    // === Content Tests (usano versioni forzate per ignorare test mode) ===
-    else if (strcmp(test, "clear") == 0) {
-        clearDisplayForced();
-        respDoc["message"] = "Display pulito";
-    }
-    else if (strcmp(test, "all") == 0) {
-        displayAllOnForced();
-        respDoc["message"] = "Tutti segmenti ON";
-    }
-    else if (strcmp(test, "all_on") == 0) {
-        tm1621_all_on();
-        respDoc["message"] = "All ON (entrambi addr 0x00 e 0x10)";
-    }
-    else if (strcmp(test, "all_off") == 0) {
-        tm1621_all_off();
-        respDoc["message"] = "All OFF";
-    }
-    else if (strcmp(test, "time") == 0) {
-        displayTime(12, 34);
-        respDoc["message"] = "Mostrato 12:34";
-    }
-    else if (strcmp(test, "bell") == 0) {
-        displayBell();
-        respDoc["message"] = "Mostrato bELL";
-    }
-    else if (strcmp(test, "loading") == 0) {
-        displayLoading();
-        respDoc["message"] = "Mostrato ----";
-    }
-    else if (strcmp(test, "number") == 0) {
-        int value = doc["value"] | 1234;
-        displayNumber(0, value, 0);
-        respDoc["message"] = String("Mostrato ") + value;
-    }
-    // === Low-Level Diagnostics ===
-    else if (strcmp(test, "fill") == 0) {
-        uint8_t value = doc["value"] | 0xFF;
-        uint8_t addr = doc["addr"] | 0x00;
-        uint8_t count = doc["count"] | 16;
-        tm1621_fill_memory(value, addr, count);
-        char msg[80];
-        snprintf(msg, sizeof(msg), "Fill 0x%02X @ addr=0x%02X count=%d", value, addr, count);
-        respDoc["message"] = msg;
-    }
-    else if (strcmp(test, "test_pins") == 0) {
-        tm1621_test_all_pins();
-        respDoc["message"] = "Test pin completato (vedi Serial)";
+    else if (strcmp(test, "lcd_off") == 0) {
+        tm1621_lcd_off_cmd();
+        respDoc["message"] = "LCD OFF";
     }
     else if (strcmp(test, "reinit") == 0) {
-        reinitDisplay();
+        tm1621_reinit();
         respDoc["message"] = "Display re-inizializzato";
     }
-    else if (strcmp(test, "raw") == 0) {
-        uint8_t addr = doc["addr"] | 0x10;
-        uint8_t data = doc["data"] | 0xFF;
-        tm1621_write_raw(addr, data);
-        char msg[64];
-        snprintf(msg, sizeof(msg), "Raw 8bit: addr=0x%02X data=0x%02X", addr, data);
+
+    // === SEGMENT TESTS ===
+    else if (strcmp(test, "all_on") == 0) {
+        tm1621_test_all_on();
+        respDoc["message"] = "Tutti i segmenti ON (RAM = 0xF)";
+    }
+    else if (strcmp(test, "all_off") == 0) {
+        tm1621_test_all_off();
+        respDoc["message"] = "Tutti i segmenti OFF (RAM = 0x0)";
+    }
+    else if (strcmp(test, "pattern") == 0) {
+        uint8_t pattern = doc["value"] | 0x05;
+        tm1621_test_pattern(pattern);
+        char msg[48];
+        snprintf(msg, sizeof(msg), "Pattern 0x%X su tutta la RAM", pattern & 0x0F);
         respDoc["message"] = msg;
     }
-    // Scrittura 4 bit (singolo nibble) - come da datasheet TM1621
-    else if (strcmp(test, "raw4") == 0) {
-        uint8_t addr = doc["addr"] | 0x00;
-        uint8_t data = doc["data"] | 0x0F;
-        tm1621_write_raw_4bit(addr, data);
+
+    // === WRITE SINGOLO NIBBLE (4 bit) ===
+    // Questo e' il test fondamentale: scrive 4 bit a un indirizzo
+    else if (strcmp(test, "write_nibble") == 0) {
+        uint8_t addr = doc["addr"] | 0;
+        uint8_t nibble = doc["data"] | 0x0F;
+        tm1621_write_nibble(addr, nibble);
         char msg[64];
-        snprintf(msg, sizeof(msg), "Raw 4bit: addr=%d data=0x%X", addr, data & 0x0F);
+        snprintf(msg, sizeof(msg), "Scritto nibble 0x%X @ addr %d", nibble & 0x0F, addr);
         respDoc["message"] = msg;
     }
-    // Test: 1 byte con funzione multi (per debug)
-    else if (strcmp(test, "multi_1byte") == 0) {
-        uint8_t data[1] = {0xFF};
-        tm1621_write_raw_multi(0x10, data, 1);
-        respDoc["message"] = "Multi 1 byte: 0xFF @ 0x10";
+
+    // === WRITE MULTI-NIBBLE ===
+    // Scrive piu' nibble consecutivi a partire da un indirizzo
+    else if (strcmp(test, "write_multi") == 0) {
+        uint8_t addr = doc["addr"] | 0;
+        uint8_t count = doc["count"] | 4;
+        uint8_t value = doc["value"] | 0x0F;
+
+        // Crea array di nibble tutti uguali
+        uint8_t data[32];
+        for (int i = 0; i < count && i < 32; i++) {
+            data[i] = value & 0x0F;
+        }
+        tm1621_write_ram(addr, data, count);
+
+        char msg[64];
+        snprintf(msg, sizeof(msg), "Scritti %d nibble (0x%X) da addr %d", count, value & 0x0F, addr);
+        respDoc["message"] = msg;
     }
-    // Test: 2 byte consecutivi
-    else if (strcmp(test, "multi_2byte") == 0) {
-        uint8_t data[2] = {0xFF, 0xFF};
-        tm1621_write_raw_multi(0x10, data, 2);
-        respDoc["message"] = "Multi 2 byte: 0xFF,0xFF @ 0x10";
+
+    // === FILL RAM (16 byte da addr 0) ===
+    else if (strcmp(test, "fill") == 0) {
+        uint8_t value = doc["value"] | 0xFF;
+        tm1621_fill_ram(value);
+        char msg[48];
+        snprintf(msg, sizeof(msg), "Fill 16 bytes: 0x%02X @ addr 0", value);
+        respDoc["message"] = msg;
     }
-    // Test scrittura 8 byte come Tasmota (addr 0x10, 8 byte 0xFF)
-    else if (strcmp(test, "tasmota_8xff") == 0) {
-        uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-        tm1621_write_raw_multi(0x10, data, 8);
-        respDoc["message"] = "Tasmota style: 8x 0xFF @ 0x10";
+
+    // === FILL AT (addr e count configurabili) ===
+    else if (strcmp(test, "fill_at") == 0) {
+        uint8_t value = doc["value"] | 0xFF;
+        uint8_t addr = doc["addr"] | 0;
+        uint8_t count = doc["count"] | 8;
+        tm1621_fill_at(value, addr, count);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "Fill %d bytes: 0x%02X @ addr %d", count, value, addr);
+        respDoc["message"] = msg;
     }
-    // Test scrittura 8 byte tutti 0x00
-    else if (strcmp(test, "tasmota_8x00") == 0) {
-        uint8_t data[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        tm1621_write_raw_multi(0x10, data, 8);
-        respDoc["message"] = "Tasmota style: 8x 0x00 @ 0x10";
+
+    // === TEST RAPIDI per trovare la configurazione giusta ===
+    else if (strcmp(test, "test_addr0") == 0) {
+        tm1621_fill_at(0xFF, 0, 8);
+        respDoc["message"] = "8x 0xFF @ addr 0";
     }
-    // Test pattern 8888 (tutti segmenti) - usa digit code Tasmota
-    else if (strcmp(test, "tasmota_8888") == 0) {
-        // Tasmota digit codes per "8" = 0x7F (row0) e 0xF7 (row1)
-        uint8_t data[8] = {0x7F, 0x7F, 0x7F, 0x7F, 0xF7, 0xF7, 0xF7, 0xF7};
-        tm1621_write_raw_multi(0x10, data, 8);
-        respDoc["message"] = "Tasmota style: 8888 @ 0x10";
+    else if (strcmp(test, "test_addr8") == 0) {
+        tm1621_fill_at(0xFF, 8, 8);
+        respDoc["message"] = "8x 0xFF @ addr 8";
     }
+    else if (strcmp(test, "test_addr16") == 0) {
+        tm1621_fill_at(0xFF, 16, 8);
+        respDoc["message"] = "8x 0xFF @ addr 16 (0x10)";
+    }
+    else if (strcmp(test, "test_all32") == 0) {
+        tm1621_fill_at(0xFF, 0, 32);
+        respDoc["message"] = "32x 0xFF @ addr 0 (tutta la RAM)";
+    }
+
+    // === TEST SINGOLI BYTE per mapping segmenti ===
+    else if (strcmp(test, "byte_at") == 0) {
+        uint8_t addr = doc["addr"] | 0;
+        uint8_t value = doc["value"] | 0xFF;
+        tm1621_write_byte(addr, value);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "Byte 0x%02X @ addr %d", value, addr);
+        respDoc["message"] = msg;
+    }
+
+    // Test singoli byte da 0 a 15
+    else if (strcmp(test, "b0") == 0) { tm1621_write_byte(0, 0xFF); respDoc["message"] = "0xFF @ addr 0"; }
+    else if (strcmp(test, "b1") == 0) { tm1621_write_byte(1, 0xFF); respDoc["message"] = "0xFF @ addr 1"; }
+    else if (strcmp(test, "b2") == 0) { tm1621_write_byte(2, 0xFF); respDoc["message"] = "0xFF @ addr 2"; }
+    else if (strcmp(test, "b3") == 0) { tm1621_write_byte(3, 0xFF); respDoc["message"] = "0xFF @ addr 3"; }
+    else if (strcmp(test, "b4") == 0) { tm1621_write_byte(4, 0xFF); respDoc["message"] = "0xFF @ addr 4"; }
+    else if (strcmp(test, "b5") == 0) { tm1621_write_byte(5, 0xFF); respDoc["message"] = "0xFF @ addr 5"; }
+    else if (strcmp(test, "b6") == 0) { tm1621_write_byte(6, 0xFF); respDoc["message"] = "0xFF @ addr 6"; }
+    else if (strcmp(test, "b7") == 0) { tm1621_write_byte(7, 0xFF); respDoc["message"] = "0xFF @ addr 7"; }
+    else if (strcmp(test, "b8") == 0) { tm1621_write_byte(8, 0xFF); respDoc["message"] = "0xFF @ addr 8"; }
+    else if (strcmp(test, "b9") == 0) { tm1621_write_byte(9, 0xFF); respDoc["message"] = "0xFF @ addr 9"; }
+    else if (strcmp(test, "b10") == 0) { tm1621_write_byte(10, 0xFF); respDoc["message"] = "0xFF @ addr 10"; }
+    else if (strcmp(test, "b11") == 0) { tm1621_write_byte(11, 0xFF); respDoc["message"] = "0xFF @ addr 11"; }
+    else if (strcmp(test, "b12") == 0) { tm1621_write_byte(12, 0xFF); respDoc["message"] = "0xFF @ addr 12"; }
+    else if (strcmp(test, "b13") == 0) { tm1621_write_byte(13, 0xFF); respDoc["message"] = "0xFF @ addr 13"; }
+    else if (strcmp(test, "b14") == 0) { tm1621_write_byte(14, 0xFF); respDoc["message"] = "0xFF @ addr 14"; }
+    else if (strcmp(test, "b15") == 0) { tm1621_write_byte(15, 0xFF); respDoc["message"] = "0xFF @ addr 15"; }
+
+    // Clear singolo byte
+    else if (strcmp(test, "clear_all") == 0) {
+        tm1621_fill_at(0x00, 0, 32);
+        respDoc["message"] = "Cleared all RAM";
+    }
+
+    // === SEND COMMAND ===
     else if (strcmp(test, "cmd") == 0) {
         uint8_t cmd = doc["cmd"] | 0x03;
-        tm1621_send_single_cmd(cmd);
+        tm1621_send_command(cmd);
         char msg[48];
         snprintf(msg, sizeof(msg), "Comando inviato: 0x%02X", cmd);
         respDoc["message"] = msg;
     }
-    // === CONFIGURAZIONE PARAMETRI TM1621 ===
+
+    // === CONFIGURATION ===
     else if (strcmp(test, "set_pulse") == 0) {
-        uint8_t us = doc["value"] | 10;
+        uint8_t us = doc["value"] | 5;
         tm1621_set_pulse_width(us);
-        respDoc["message"] = String("Pulse width: ") + us + " us";
-    }
-    else if (strcmp(test, "set_addr") == 0) {
-        uint8_t addr = doc["value"] | 0x10;
-        tm1621_set_mem_address(addr);
         char msg[48];
-        snprintf(msg, sizeof(msg), "Memory address: 0x%02X", addr);
+        snprintf(msg, sizeof(msg), "Pulse width: %d us", us);
         respDoc["message"] = msg;
     }
-    else if (strcmp(test, "set_lsb") == 0) {
-        bool lsb = doc["value"] | true;
-        tm1621_set_lsb_first(lsb);
-        respDoc["message"] = String("Bit order: ") + (lsb ? "LSB" : "MSB") + " first";
-    }
     else if (strcmp(test, "set_bias") == 0) {
-        uint8_t bias = doc["value"] | 0x29;
+        uint8_t bias = doc["value"] | 0x28;
         tm1621_set_bias(bias);
         char msg[48];
         snprintf(msg, sizeof(msg), "BIAS: 0x%02X", bias);
         respDoc["message"] = msg;
     }
-    else if (strcmp(test, "set_reset") == 0) {
-        uint8_t mode = doc["value"] | 0;
-        tm1621_set_reset_mode(mode);
-        const char* names[] = {"Tasmota", "ESPHome", "Minimal", "Extended"};
-        respDoc["message"] = String("Reset mode: ") + names[mode % 4];
+
+    // === PIN TEST ===
+    else if (strcmp(test, "test_pins") == 0) {
+        tm1621_test_pins_sequence();
+        respDoc["message"] = "Test sequenza pin completato (vedi Serial)";
     }
-    else if (strcmp(test, "get_params") == 0) {
-        respDoc["params"] = getDisplayParams();
-        respDoc["buffer"] = getDisplayBufferHex();
-        respDoc["content"] = getDisplayContent();
-        respDoc["updates"] = getDisplayUpdateCount();
-        respDoc["initialized"] = isDisplayInitialized();
-        respDoc["displayOn"] = isDisplayOn();
-        respDoc["message"] = "Parametri correnti";
+    else if (strcmp(test, "set_pin") == 0) {
+        uint8_t pin = doc["pin"] | PIN_LCD_DATA;
+        bool state = doc["state"] | false;
+        tm1621_test_pin(pin, state);
+        char msg[48];
+        snprintf(msg, sizeof(msg), "GPIO%d = %s", pin, state ? "HIGH" : "LOW");
+        respDoc["message"] = msg;
     }
-    // === PRESET CONFIGURAZIONI ===
-    else if (strcmp(test, "preset_tasmota") == 0) {
-        tm1621_set_cmd_mode(1);  // Tasmota mode
-        tm1621_set_pulse_width(10);
-        tm1621_set_mem_address(0x00);  // Tasmota usa 0x00
-        tm1621_set_bias(0x29);
-        tm1621_set_reset_mode(0);
-        reinitDisplay();
-        respDoc["message"] = "Preset Tasmota applicato (cmd MSB, data LSB)";
+
+    // === GET STATUS ===
+    else if (strcmp(test, "get_status") == 0) {
+        respDoc["initialized"] = tm1621_is_initialized();
+        respDoc["lcdOn"] = tm1621_is_lcd_on();
+        respDoc["testMode"] = tm1621_is_test_mode();
+        respDoc["bias"] = tm1621_get_bias();
+        respDoc["pulse"] = tm1621_get_pulse_width();
+        respDoc["writes"] = tm1621_get_write_count();
+        respDoc["cmds"] = tm1621_get_cmd_count();
+        respDoc["ram"] = tm1621_get_ram_hex();
+        respDoc["message"] = "Stato TM1621";
     }
-    else if (strcmp(test, "preset_esphome") == 0) {
-        tm1621_set_cmd_mode(1);  // Simile a Tasmota
-        tm1621_set_pulse_width(5);
-        tm1621_set_mem_address(0x00);
-        tm1621_set_bias(0x29);
-        tm1621_set_reset_mode(1);
-        reinitDisplay();
-        respDoc["message"] = "Preset ESPHome applicato";
+
+    // === PRINT STATUS TO SERIAL ===
+    else if (strcmp(test, "print_status") == 0) {
+        tm1621_print_status();
+        respDoc["message"] = "Status stampato su Serial";
     }
-    else if (strcmp(test, "preset_fast") == 0) {
-        tm1621_set_cmd_mode(0);  // emsyscode mode
-        tm1621_set_pulse_width(2);
-        tm1621_set_mem_address(0x00);
-        tm1621_set_bias(0x29);
-        tm1621_set_reset_mode(2);
-        reinitDisplay();
-        respDoc["message"] = "Preset Fast/emsyscode applicato";
+
+    // === LEGACY COMPATIBILITY ===
+    else if (strcmp(test, "on") == 0) {
+        tm1621_lcd_on_cmd();
+        respDoc["message"] = "LCD ON";
     }
-    else if (strcmp(test, "preset_slow") == 0) {
-        tm1621_set_cmd_mode(1);  // Tasmota mode
-        tm1621_set_pulse_width(20);
-        tm1621_set_mem_address(0x00);
-        tm1621_set_bias(0x29);
-        tm1621_set_reset_mode(3);
-        reinitDisplay();
-        respDoc["message"] = "Preset Slow applicato";
+    else if (strcmp(test, "off") == 0) {
+        tm1621_lcd_off_cmd();
+        respDoc["message"] = "LCD OFF";
     }
+    else if (strcmp(test, "clear") == 0) {
+        tm1621_fill_ram(0x00);
+        respDoc["message"] = "RAM cleared";
+    }
+
     else {
-        sendError(400, "Test non valido");
+        sendError(400, "Test non valido. Usa: lcd_on, lcd_off, reinit, all_on, all_off, pattern, write_nibble, write_multi, fill, cmd, set_pulse, set_bias, test_pins, set_pin, get_status");
         return;
     }
 
@@ -901,29 +918,8 @@ void handleDebugTestDisplay() {
     Serial.printf("[DEBUG] Display test: %s\n", test);
 }
 
-void handleSetCmdMode() {
-    addCorsHeaders();
-
-    if (!server.hasArg("mode")) {
-        sendError(400, "Parametro 'mode' mancante (0=emsyscode, 1=Tasmota)");
-        return;
-    }
-
-    uint8_t mode = server.arg("mode").toInt();
-    if (mode > 1) {
-        sendError(400, "Modalita' non valida (0=emsyscode, 1=Tasmota)");
-        return;
-    }
-
-    tm1621_set_cmd_mode(mode);
-    reinitDisplay();
-
-    snprintf(jsonBuffer, sizeof(jsonBuffer),
-             "{\"success\":true,\"message\":\"Cmd mode: %s\",\"mode\":%d}",
-             mode == 0 ? "emsyscode" : "Tasmota", mode);
-    server.send(200, "application/json", jsonBuffer);
-    Serial.printf("[API] Cmd mode -> %s\n", mode == 0 ? "emsyscode" : "Tasmota");
-}
+// handleSetCmdMode rimosso - il driver v4.0 segue il datasheet ufficiale
+// e non ha piu' modalita' alternative
 
 void handleSetTestMode() {
     addCorsHeaders();
@@ -1094,8 +1090,6 @@ void setupApiRoutes() {
     server.on("/api/debug/display", HTTP_OPTIONS, handleOptions);
     server.on("/api/debug/restart", HTTP_POST, handleDebugRestart);
     server.on("/api/debug/restart", HTTP_OPTIONS, handleOptions);
-    server.on("/api/display/set_cmd_mode", HTTP_GET, handleSetCmdMode);
-    server.on("/api/display/set_cmd_mode", HTTP_OPTIONS, handleOptions);
     server.on("/api/display/test_mode", HTTP_GET, handleSetTestMode);
     server.on("/api/display/test_mode", HTTP_OPTIONS, handleOptions);
 

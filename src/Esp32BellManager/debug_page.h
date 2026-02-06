@@ -3,236 +3,249 @@
 
 #include <pgmspace.h>
 
+// ============================================
+// Debug Page v3.0 - Per TM1621 Driver v4.0
+// Interfaccia di test basata sul datasheet ufficiale
+// ============================================
+
 const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Debug - Bell-Manager</title>
+  <title>TM1621 Debug - Bell-Manager</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: monospace; background: #1a1a2e; color: #eee; padding: 20px; }
-    h1 { color: #0f0; margin-bottom: 20px; }
-    h2 { color: #0ff; margin: 20px 0 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-    h3 { color: #ff0; margin: 15px 0 8px; font-size: 14px; }
+    body { margin: 0; font-family: monospace; background: #1a1a2e; color: #eee; padding: 15px; }
+    h1 { color: #0f0; margin-bottom: 10px; font-size: 20px; }
+    h2 { color: #0ff; margin: 15px 0 8px; border-bottom: 1px solid #333; padding-bottom: 5px; font-size: 14px; }
+    h3 { color: #ff0; margin: 10px 0 5px; font-size: 12px; }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; }
 
     .card {
       background: #16213e;
       border: 1px solid #333;
       border-radius: 8px;
-      padding: 15px;
+      padding: 12px;
     }
 
     .status-row {
       display: flex;
       justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #333;
+      padding: 5px 0;
+      border-bottom: 1px solid #222;
+      font-size: 12px;
     }
     .status-label { color: #888; }
     .status-value { color: #0f0; font-weight: bold; }
     .status-value.off { color: #f00; }
-    .status-value.warn { color: #ff0; }
 
     .btn {
-      padding: 10px 20px;
-      margin: 5px;
+      padding: 8px 12px;
+      margin: 3px;
       border: none;
-      border-radius: 5px;
+      border-radius: 4px;
       cursor: pointer;
       font-family: monospace;
       font-weight: bold;
-      transition: 0.2s;
+      font-size: 11px;
     }
-    .btn:hover { transform: scale(1.05); }
+    .btn:hover { opacity: 0.8; }
     .btn:active { transform: scale(0.95); }
-    .btn-sm { padding: 5px 10px; font-size: 12px; }
 
     .btn-on { background: #0a0; color: #fff; }
     .btn-off { background: #a00; color: #fff; }
     .btn-test { background: #00a; color: #fff; }
     .btn-warn { background: #a50; color: #fff; }
-    .btn-diag { background: #505; color: #fff; }
+    .btn-info { background: #058; color: #fff; }
 
-    .gpio-control {
+    .gpio-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid #333;
-    }
-    .gpio-name { font-size: 14px; }
-    .gpio-state {
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      margin: 0 10px;
-    }
-    .gpio-state.on { background: #0f0; box-shadow: 0 0 10px #0f0; }
-    .gpio-state.off { background: #333; }
-
-    .log {
-      background: #000;
-      border: 1px solid #333;
-      padding: 10px;
-      height: 200px;
-      overflow-y: auto;
-      font-size: 12px;
-      color: #0f0;
-    }
-    .log-entry { margin: 2px 0; }
-    .log-time { color: #888; }
-    .log-error { color: #f00; }
-    .log-warn { color: #ff0; }
-
-    #lastUpdate { color: #888; font-size: 12px; }
-
-    .pin-row {
-      display: flex;
-      align-items: center;
-      padding: 5px 0;
+      padding: 8px 0;
       border-bottom: 1px solid #222;
     }
-    .pin-label { width: 100px; color: #888; }
-    .pin-gpio { width: 60px; color: #0ff; }
+    .gpio-name { font-size: 12px; flex: 1; }
+    .gpio-led {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      margin: 0 8px;
+    }
+    .gpio-led.on { background: #0f0; box-shadow: 0 0 8px #0f0; }
+    .gpio-led.off { background: #333; }
+
+    input, select {
+      padding: 6px;
+      background: #000;
+      color: #0f0;
+      border: 1px solid #333;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    input[type="number"] { width: 60px; }
+
+    .ram-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin: 10px 0;
+      font-size: 9px;
+    }
+    .ram-cell {
+      background: #000;
+      padding: 3px 2px;
+      text-align: center;
+      border: 1px solid #333;
+      color: #0f0;
+    }
+    .ram-cell.active { background: #030; border-color: #0f0; }
+
+    .test-box {
+      background: #300;
+      border: 2px solid #f00;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+    .test-box.active {
+      background: #030;
+      border-color: #0f0;
+    }
+
+    .info-text { color: #888; font-size: 10px; margin: 5px 0; }
+    .mono { font-family: monospace; }
+
+    #log {
+      background: #000;
+      border: 1px solid #333;
+      padding: 8px;
+      height: 150px;
+      overflow-y: auto;
+      font-size: 11px;
+      color: #0f0;
+    }
+    .log-time { color: #666; }
+    .log-error { color: #f00; }
+    .log-warn { color: #ff0; }
   </style>
 </head>
 <body>
-  <h1>// DEBUG CONSOLE</h1>
-  <div id="lastUpdate">Last update: --</div>
+  <h1>// TM1621 Debug Console v3.0</h1>
+  <div id="lastUpdate" style="color:#888;font-size:11px;margin-bottom:10px;">Last update: --</div>
 
   <div class="grid">
-    <!-- GPIO Status & Control -->
+    <!-- TEST MODE BOX -->
     <div class="card">
-      <h2>GPIO Control</h2>
-
-      <div class="gpio-control">
-        <span class="gpio-name">BUTTON (GPIO0)</span>
-        <span class="gpio-state" id="btnState"></span>
-        <span id="btnText">--</span>
-      </div>
-
-      <div class="gpio-control">
-        <span class="gpio-name">RELAY (GPIO13)</span>
-        <span class="gpio-state" id="relayState"></span>
-        <div>
-          <button class="btn btn-on btn-sm" onclick="setGpio('relay', true)">ON</button>
-          <button class="btn btn-off btn-sm" onclick="setGpio('relay', false)">OFF</button>
-        </div>
-      </div>
-
-      <div class="gpio-control">
-        <span class="gpio-name">LED WiFi (GPIO5)</span>
-        <span class="gpio-state" id="ledWifiState"></span>
-        <div>
-          <button class="btn btn-on btn-sm" onclick="setGpio('ledWifi', true)">ON</button>
-          <button class="btn btn-off btn-sm" onclick="setGpio('ledWifi', false)">OFF</button>
-        </div>
-      </div>
-
-      <div class="gpio-control">
-        <span class="gpio-name">LED Relay (GPIO18)</span>
-        <span class="gpio-state" id="ledRelayState"></span>
-        <div>
-          <button class="btn btn-on btn-sm" onclick="setGpio('ledRelay', true)">ON</button>
-          <button class="btn btn-off btn-sm" onclick="setGpio('ledRelay', false)">OFF</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Display TM1621 - EXPANDED -->
-    <div class="card">
-      <h2>Display TM1621</h2>
-
-      <!-- TEST MODE TOGGLE - IMPORTANTE -->
-      <div id="testModeBox" style="background:#300;border:2px solid #f00;padding:10px;margin-bottom:15px;border-radius:5px;">
+      <div class="test-box" id="testModeBox">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="color:#ff0;font-weight:bold;">⚠ MODALITA' TEST</span>
-          <span id="testModeStatus" style="font-weight:bold;">OFF</span>
+          <span style="color:#ff0;font-weight:bold;">TEST MODE</span>
+          <span id="testModeStatus" style="font-weight:bold;color:#888;">OFF</span>
         </div>
-        <p style="color:#aaa;font-size:11px;margin:5px 0;">Blocca aggiornamenti automatici. Si disattiva uscendo dalla pagina debug.</p>
-        <div style="margin-top:8px;">
-          <button class="btn btn-on" onclick="setTestMode(true)">TEST ON</button>
-          <button class="btn btn-off" onclick="setTestMode(false)">TEST OFF</button>
-        </div>
+        <p class="info-text">Blocca aggiornamenti auto del display. Si disattiva uscendo dalla pagina.</p>
+        <button class="btn btn-on" onclick="setTestMode(true)">ATTIVA TEST</button>
+        <button class="btn btn-off" onclick="setTestMode(false)">DISATTIVA</button>
       </div>
 
-      <!-- Display Status -->
+      <h2>TM1621 Status</h2>
       <div class="status-row">
         <span class="status-label">Initialized</span>
         <span class="status-value" id="dispInit">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">LCD Power</span>
+        <span class="status-label">LCD On</span>
         <span class="status-value" id="dispOn">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Content</span>
-        <span class="status-value" id="dispContent">--</span>
+        <span class="status-label">BIAS</span>
+        <span class="status-value" id="dispBias">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Updates</span>
-        <span class="status-value" id="dispUpdates">--</span>
+        <span class="status-label">Pulse Width</span>
+        <span class="status-value" id="dispPulse">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Buffer</span>
-        <span class="status-value" id="dispBuffer" style="font-size:11px;">--</span>
+        <span class="status-label">Write Count</span>
+        <span class="status-value" id="dispWrites">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Params</span>
-        <span class="status-value" id="dispParams" style="font-size:10px;">--</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">Cmd Mode</span>
-        <span class="status-value" id="dispCmdMode">--</span>
+        <span class="status-label">Cmd Count</span>
+        <span class="status-value" id="dispCmds">--</span>
       </div>
 
-      <!-- Display Power Control -->
-      <h3>Power Control</h3>
-      <div style="margin-bottom:10px;">
-        <button class="btn btn-on" onclick="testDisplay('on')">LCD ON</button>
-        <button class="btn btn-off" onclick="testDisplay('off')">LCD OFF</button>
-        <button class="btn btn-diag" onclick="testDisplay('reinit')">Re-Init</button>
+      <h3>RAM Mirror (32 x 4 bit)</h3>
+      <div id="ramGrid" class="ram-grid"></div>
+    </div>
+
+    <!-- DISPLAY CONTROL -->
+    <div class="card">
+      <h2>Display Control</h2>
+
+      <h3>Power</h3>
+      <div>
+        <button class="btn btn-on" onclick="testCmd('lcd_on')">LCD ON</button>
+        <button class="btn btn-off" onclick="testCmd('lcd_off')">LCD OFF</button>
+        <button class="btn btn-warn" onclick="testCmd('reinit')">Re-Init</button>
       </div>
 
-      <!-- Standard Display Tests -->
-      <h3>Content Tests</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
-        <button class="btn btn-test btn-sm" onclick="testDisplay('clear')">Clear</button>
-        <button class="btn btn-test btn-sm" onclick="testDisplay('all_on')">All ON</button>
-        <button class="btn btn-test btn-sm" onclick="testDisplay('all_off')">All OFF</button>
-        <button class="btn btn-test btn-sm" onclick="testDisplay('time')">12:34</button>
-        <button class="btn btn-test btn-sm" onclick="testDisplay('bell')">bELL</button>
-        <button class="btn btn-test btn-sm" onclick="testDisplay('loading')">----</button>
+      <h3>Segment Test</h3>
+      <div>
+        <button class="btn btn-test" onclick="testCmd('all_on')">All ON (0xFF)</button>
+        <button class="btn btn-test" onclick="testCmd('all_off')">All OFF</button>
       </div>
 
-      <!-- LOW LEVEL DIAGNOSTICS -->
-      <h3>Memory Fill</h3>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">
-        <select id="fillAddr" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="0">Addr 0x00</option>
-          <option value="16" selected>Addr 0x10</option>
-        </select>
-        <select id="fillValue" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
+      <h3>Test Singoli Byte (0xFF)</h3>
+      <p class="info-text">Premi CLEAR prima, poi un byte alla volta per vedere quale digit si accende</p>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:5px;">
+        <button class="btn btn-off" onclick="testCmd('clear_all')" style="padding:4px 8px;">CLEAR</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;">
+        <button class="btn btn-info" onclick="testCmd('b0')" style="padding:4px 6px;font-size:10px;">0</button>
+        <button class="btn btn-info" onclick="testCmd('b1')" style="padding:4px 6px;font-size:10px;">1</button>
+        <button class="btn btn-info" onclick="testCmd('b2')" style="padding:4px 6px;font-size:10px;">2</button>
+        <button class="btn btn-info" onclick="testCmd('b3')" style="padding:4px 6px;font-size:10px;">3</button>
+        <button class="btn btn-info" onclick="testCmd('b4')" style="padding:4px 6px;font-size:10px;">4</button>
+        <button class="btn btn-info" onclick="testCmd('b5')" style="padding:4px 6px;font-size:10px;">5</button>
+        <button class="btn btn-info" onclick="testCmd('b6')" style="padding:4px 6px;font-size:10px;">6</button>
+        <button class="btn btn-info" onclick="testCmd('b7')" style="padding:4px 6px;font-size:10px;">7</button>
+        <button class="btn btn-warn" onclick="testCmd('b8')" style="padding:4px 6px;font-size:10px;">8</button>
+        <button class="btn btn-warn" onclick="testCmd('b9')" style="padding:4px 6px;font-size:10px;">9</button>
+        <button class="btn btn-warn" onclick="testCmd('b10')" style="padding:4px 6px;font-size:10px;">10</button>
+        <button class="btn btn-warn" onclick="testCmd('b11')" style="padding:4px 6px;font-size:10px;">11</button>
+        <button class="btn btn-warn" onclick="testCmd('b12')" style="padding:4px 6px;font-size:10px;">12</button>
+        <button class="btn btn-warn" onclick="testCmd('b13')" style="padding:4px 6px;font-size:10px;">13</button>
+        <button class="btn btn-warn" onclick="testCmd('b14')" style="padding:4px 6px;font-size:10px;">14</button>
+        <button class="btn btn-warn" onclick="testCmd('b15')" style="padding:4px 6px;font-size:10px;">15</button>
+      </div>
+
+      <h3>Fill Personalizzato</h3>
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+        <span>Addr:</span>
+        <input type="number" id="fillAddr" value="0" min="0" max="31" style="width:50px;">
+        <span>Count:</span>
+        <input type="number" id="fillCount" value="8" min="1" max="32" style="width:50px;">
+        <span>Val:</span>
+        <select id="fillVal">
           <option value="255">0xFF</option>
           <option value="0">0x00</option>
           <option value="170">0xAA</option>
           <option value="85">0x55</option>
+          <option value="15">0x0F</option>
+          <option value="240">0xF0</option>
         </select>
-        <button class="btn btn-diag btn-sm" onclick="testFill()">Fill</button>
-        <button class="btn btn-diag btn-sm" onclick="testDisplay('test_pins')">Test Pins</button>
+        <button class="btn btn-warn" onclick="fillAt()">FILL</button>
       </div>
 
-      <!-- Raw Write 4-bit (come da datasheet) -->
-      <h3>Raw Write 4-bit (datasheet)</h3>
-      <p style="color:#888;font-size:10px;margin:0 0 5px 0;">TM1621 RAM = 32x4 bit. Ogni indirizzo = 4 bit.</p>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:10px;">
-        <span style="color:#888;">Addr</span>
-        <input type="number" id="raw4Addr" value="0" min="0" max="31" style="width:50px;padding:6px;background:#000;color:#0f0;border:1px solid #333;">
-        <span style="color:#888;">Data</span>
-        <select id="raw4Data" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
+      <h3>Scrivi Singolo Nibble (4 bit)</h3>
+      <p class="info-text">RAM = 32 indirizzi, ogni addr = 4 bit (D0-D3)</p>
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+        <span>Addr:</span>
+        <input type="number" id="nibbleAddr" value="0" min="0" max="31">
+        <span>Data:</span>
+        <select id="nibbleData">
           <option value="15">0xF (1111)</option>
           <option value="0">0x0 (0000)</option>
           <option value="1">0x1 (0001)</option>
@@ -241,170 +254,154 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
           <option value="8">0x8 (1000)</option>
           <option value="5">0x5 (0101)</option>
           <option value="10">0xA (1010)</option>
+          <option value="7">0x7 (0111)</option>
+          <option value="14">0xE (1110)</option>
         </select>
-        <button class="btn btn-warn btn-sm" onclick="testRaw4bit()">Write 4bit</button>
+        <button class="btn btn-warn" onclick="writeNibble()">WRITE</button>
       </div>
 
-      <!-- Raw Write 8-bit (legacy) -->
-      <h3>Raw Write 8-bit (2 nibble)</h3>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:10px;">
-        <span style="color:#888;">Addr 0x</span>
-        <input type="text" id="rawAddr" value="10" style="width:40px;padding:6px;background:#000;color:#0f0;border:1px solid #333;">
-        <span style="color:#888;">Data 0x</span>
-        <input type="text" id="rawData" value="FF" style="width:40px;padding:6px;background:#000;color:#0f0;border:1px solid #333;">
-        <button class="btn btn-diag btn-sm" onclick="testRawWrite()">Write 8bit</button>
+      <h3>Scrivi Multi-Nibble</h3>
+      <p class="info-text">Scrive nibble consecutivi con auto-increment</p>
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+        <span>Addr:</span>
+        <input type="number" id="multiAddr" value="0" min="0" max="31">
+        <span>Count:</span>
+        <input type="number" id="multiCount" value="4" min="1" max="32">
+        <span>Val:</span>
+        <select id="multiValue">
+          <option value="15">0xF</option>
+          <option value="0">0x0</option>
+          <option value="5">0x5</option>
+          <option value="10">0xA</option>
+        </select>
+        <button class="btn btn-warn" onclick="writeMulti()">WRITE</button>
       </div>
 
-      <!-- Tasmota Style Write (byte consecutivi) -->
-      <h3>Multi-byte Write @ 0x10</h3>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">
-        <button class="btn btn-diag btn-sm" onclick="testDisplay('multi_1byte')">1x 0xFF</button>
-        <button class="btn btn-diag btn-sm" onclick="testDisplay('multi_2byte')">2x 0xFF</button>
-        <button class="btn btn-warn btn-sm" onclick="testDisplay('tasmota_8xff')">8x 0xFF</button>
-        <button class="btn btn-warn btn-sm" onclick="testDisplay('tasmota_8x00')">8x 0x00</button>
-        <button class="btn btn-warn btn-sm" onclick="testDisplay('tasmota_8888')">8888</button>
-      </div>
-
-      <!-- Send Command -->
-      <h3>Send Command</h3>
+      <h3>Fill RAM</h3>
       <div style="display:flex;gap:5px;align-items:center;">
-        <select id="cmdSelect" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="1">0x01 SYS_EN</option>
-          <option value="0">0x00 SYS_DIS</option>
-          <option value="3">0x03 LCD_ON</option>
-          <option value="2">0x02 LCD_OFF</option>
-          <option value="41">0x29 BIAS 1/3 4COM</option>
-          <option value="40">0x28 BIAS 1/2 4COM</option>
-          <option value="37">0x25 BIAS 1/3 3COM</option>
-          <option value="4">0x04 TIMER_DIS</option>
-          <option value="5">0x05 WDT_DIS</option>
-          <option value="8">0x08 TONE_OFF</option>
-          <option value="128">0x80 IRQ_DIS</option>
+        <span>Value:</span>
+        <select id="fillValue">
+          <option value="15">0xF (all ON)</option>
+          <option value="0">0x0 (all OFF)</option>
+          <option value="5">0x5 (0101)</option>
+          <option value="10">0xA (1010)</option>
         </select>
-        <button class="btn btn-diag btn-sm" onclick="testCmd()">Send</button>
+        <button class="btn btn-test" onclick="fillRam()">FILL ALL</button>
       </div>
     </div>
 
-    <!-- TM1621 Configuration -->
+    <!-- COMMANDS -->
     <div class="card">
-      <h2>TM1621 Config</h2>
-      <p style="color:#888;font-size:11px;margin-bottom:10px;">Modifica parametri e premi Re-Init per applicare</p>
+      <h2>Send Command</h2>
+      <p class="info-text">Invia comando diretto al TM1621 (9 bit MSB first)</p>
 
-      <!-- Modalita' Comando -->
-      <h3>Modalita' Comando</h3>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:15px;">
-        <select id="cmdMode" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="0" selected>emsyscode (LSB, 2us) - DEFAULT</option>
-          <option value="1">Tasmota (MSB, 10us)</option>
-        </select>
-        <button class="btn btn-warn btn-sm" onclick="setCmdMode()">Applica</button>
-        <span id="cmdModeStatus" style="color:#888;font-size:11px;margin-left:5px;"></span>
+      <h3>System</h3>
+      <div>
+        <button class="btn btn-info" onclick="sendCmd(0x01)">SYS_EN (0x01)</button>
+        <button class="btn btn-info" onclick="sendCmd(0x00)">SYS_DIS (0x00)</button>
+        <button class="btn btn-info" onclick="sendCmd(0x03)">LCD_ON (0x03)</button>
+        <button class="btn btn-info" onclick="sendCmd(0x02)">LCD_OFF (0x02)</button>
       </div>
 
-      <!-- Presets -->
-      <h3>Preset Configurazioni</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:15px;">
-        <button class="btn btn-warn btn-sm" onclick="testDisplay('preset_tasmota')">Tasmota</button>
-        <button class="btn btn-warn btn-sm" onclick="testDisplay('preset_esphome')">ESPHome</button>
-        <button class="btn btn-warn btn-sm" onclick="testDisplay('preset_fast')">Fast</button>
-        <button class="btn btn-warn btn-sm" onclick="testDisplay('preset_slow')">Slow</button>
+      <h3>BIAS/COM Config</h3>
+      <p class="info-text">POWR316D: 0x24 funziona meglio!</p>
+      <div>
+        <button class="btn btn-on" onclick="sendCmd(0x24)">0x24 (1/2, 3COM) OK!</button>
+        <button class="btn btn-info" onclick="sendCmd(0x25)">0x25 (1/3, 3COM)</button>
+        <button class="btn btn-info" onclick="sendCmd(0x28)">0x28 (1/2, 4COM)</button>
+        <button class="btn btn-info" onclick="sendCmd(0x29)">0x29 (1/3, 4COM)</button>
       </div>
 
-      <!-- Timing -->
+      <h3>Clock Source</h3>
+      <div>
+        <button class="btn btn-info" onclick="sendCmd(0x18)">RC 256K (default)</button>
+        <button class="btn btn-info" onclick="sendCmd(0x14)">XTAL 32K</button>
+      </div>
+
+      <h3>Command Personalizzato</h3>
+      <div style="display:flex;gap:5px;align-items:center;">
+        <span>Cmd 0x</span>
+        <input type="text" id="customCmd" value="03" style="width:40px;">
+        <button class="btn btn-warn" onclick="sendCustomCmd()">SEND</button>
+      </div>
+    </div>
+
+    <!-- CONFIGURATION -->
+    <div class="card">
+      <h2>Configuration</h2>
+
       <h3>Pulse Width (us)</h3>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:10px;">
-        <select id="pulseWidth" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="2">2 us (fast)</option>
-          <option value="5">5 us</option>
-          <option value="10" selected>10 us (default)</option>
+      <p class="info-text">Timing del clock seriale. Default: 5us.</p>
+      <div style="display:flex;gap:5px;align-items:center;">
+        <select id="pulseWidth">
+          <option value="1">1 us (fast)</option>
+          <option value="2">2 us</option>
+          <option value="5" selected>5 us (default)</option>
+          <option value="10">10 us</option>
           <option value="20">20 us (slow)</option>
-          <option value="50">50 us (very slow)</option>
         </select>
-        <button class="btn btn-diag btn-sm" onclick="setParam('set_pulse', 'pulseWidth')">Set</button>
+        <button class="btn btn-info" onclick="setPulse()">SET</button>
       </div>
 
-      <!-- Memory Address -->
-      <h3>Memory Start Address</h3>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:10px;">
-        <select id="memAddr" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="0">0x00 (some devices)</option>
-          <option value="16" selected>0x10 (Tasmota/Sonoff)</option>
-        </select>
-        <button class="btn btn-diag btn-sm" onclick="setParam('set_addr', 'memAddr')">Set</button>
-      </div>
-
-      <!-- Bit Order -->
-      <h3>Data Bit Order</h3>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:10px;">
-        <select id="bitOrder" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="1" selected>LSB first (standard)</option>
-          <option value="0">MSB first</option>
-        </select>
-        <button class="btn btn-diag btn-sm" onclick="setParam('set_lsb', 'bitOrder')">Set</button>
-      </div>
-
-      <!-- BIAS -->
-      <h3>LCD BIAS Configuration</h3>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:10px;">
-        <select id="biasCmd" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="41" selected>0x29 - 1/3 bias, 4 COM (POWR316D)</option>
+      <h3>BIAS Setting</h3>
+      <p class="info-text">Configura e invia comando BIAS</p>
+      <div style="display:flex;gap:5px;align-items:center;">
+        <select id="biasSelect">
           <option value="40">0x28 - 1/2 bias, 4 COM</option>
-          <option value="37">0x25 - 1/3 bias, 3 COM</option>
+          <option value="41">0x29 - 1/3 bias, 4 COM</option>
           <option value="36">0x24 - 1/2 bias, 3 COM</option>
-          <option value="33">0x21 - 1/3 bias, 2 COM</option>
-          <option value="32">0x20 - 1/2 bias, 2 COM</option>
+          <option value="37">0x25 - 1/3 bias, 3 COM</option>
         </select>
-        <button class="btn btn-diag btn-sm" onclick="setParam('set_bias', 'biasCmd')">Set</button>
+        <button class="btn btn-info" onclick="setBias()">SET</button>
       </div>
 
-      <!-- Reset Mode -->
-      <h3>Reset Sequence</h3>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:10px;">
-        <select id="resetMode" style="padding:5px;background:#000;color:#0f0;border:1px solid #333;">
-          <option value="0" selected>Tasmota style</option>
-          <option value="1">ESPHome style</option>
-          <option value="2">Minimal</option>
-          <option value="3">Extended</option>
-        </select>
-        <button class="btn btn-diag btn-sm" onclick="setParam('set_reset', 'resetMode')">Set</button>
-      </div>
-
-      <div style="margin-top:15px;">
-        <button class="btn btn-on" onclick="testDisplay('reinit')">Apply & Re-Init Display</button>
-        <button class="btn btn-test" onclick="refreshParams()">Refresh Params</button>
+      <h3>Pin Test</h3>
+      <p class="info-text">Testa i pin fisici del display</p>
+      <div>
+        <button class="btn btn-warn" onclick="testCmd('test_pins')">Test Sequenza Pin</button>
+        <button class="btn btn-info" onclick="testCmd('print_status')">Print Status (Serial)</button>
       </div>
     </div>
 
-    <!-- Display Pin Info -->
+    <!-- GPIO CONTROL -->
     <div class="card">
-      <h2>Hardware Info</h2>
-      <div class="pin-row">
-        <span class="pin-label">CS</span>
-        <span class="pin-gpio">GPIO25</span>
+      <h2>GPIO Control</h2>
+
+      <div class="gpio-row">
+        <span class="gpio-name">Button (GPIO0)</span>
+        <span class="gpio-led" id="btnLed"></span>
+        <span id="btnText">--</span>
       </div>
-      <div class="pin-row">
-        <span class="pin-label">DATA</span>
-        <span class="pin-gpio">GPIO14</span>
+
+      <div class="gpio-row">
+        <span class="gpio-name">Relay (GPIO13)</span>
+        <span class="gpio-led" id="relayLed"></span>
+        <div>
+          <button class="btn btn-on" onclick="setGpio('relay',true)">ON</button>
+          <button class="btn btn-off" onclick="setGpio('relay',false)">OFF</button>
+        </div>
       </div>
-      <div class="pin-row">
-        <span class="pin-label">RD</span>
-        <span class="pin-gpio">GPIO26</span>
+
+      <div class="gpio-row">
+        <span class="gpio-name">LED WiFi (GPIO5)</span>
+        <span class="gpio-led" id="ledWifiLed"></span>
+        <div>
+          <button class="btn btn-on" onclick="setGpio('ledWifi',true)">ON</button>
+          <button class="btn btn-off" onclick="setGpio('ledWifi',false)">OFF</button>
+        </div>
       </div>
-      <div class="pin-row">
-        <span class="pin-label">WR</span>
-        <span class="pin-gpio">GPIO27</span>
+
+      <div class="gpio-row">
+        <span class="gpio-name">LED Relay (GPIO18)</span>
+        <span class="gpio-led" id="ledRelayLed"></span>
+        <div>
+          <button class="btn btn-on" onclick="setGpio('ledRelay',true)">ON</button>
+          <button class="btn btn-off" onclick="setGpio('ledRelay',false)">OFF</button>
+        </div>
       </div>
-      <p style="color:#888;font-size:11px;margin-top:10px;">
-        Chip: TM1621 (Titan Micro)<br>
-        LCD: 2x4 digits, 7-segment<br>
-        Protocol: 4-wire serial (bit-bang)<br>
-        Sources: <a href="https://github.com/arendst/Tasmota/blob/development/tasmota/tasmota_xdrv_driver/xdrv_87_esp32_sonoff_tm1621.ino" style="color:#0ff;">Tasmota</a>,
-        <a href="https://esphome.io/components/display/tm1621/" style="color:#0ff;">ESPHome</a>,
-        <a href="https://espeasy.readthedocs.io/en/latest/Plugin/P148.html" style="color:#0ff;">ESPEasy</a>
-      </p>
     </div>
 
-    <!-- System Info -->
+    <!-- SYSTEM INFO -->
     <div class="card">
       <h2>System Info</h2>
       <div class="status-row">
@@ -416,390 +413,209 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
         <span class="status-value" id="uptime">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">CPU Freq</span>
-        <span class="status-value" id="cpuFreq">--</span>
-      </div>
-      <div class="status-row">
         <span class="status-label">Free Heap</span>
         <span class="status-value" id="freeHeap">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Min Free Heap</span>
-        <span class="status-value" id="minFreeHeap">--</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">Flash Size</span>
-        <span class="status-value" id="flashSize">--</span>
-      </div>
-    </div>
-
-    <!-- WiFi Info -->
-    <div class="card">
-      <h2>WiFi Status</h2>
-      <div class="status-row">
-        <span class="status-label">State</span>
+        <span class="status-label">WiFi</span>
         <span class="status-value" id="wifiState">--</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">SSID</span>
-        <span class="status-value" id="wifiSSID">--</span>
       </div>
       <div class="status-row">
         <span class="status-label">IP</span>
         <span class="status-value" id="wifiIP">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">MAC</span>
-        <span class="status-value" id="wifiMAC">--</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">RSSI</span>
-        <span class="status-value" id="wifiRSSI">--</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">Channel</span>
-        <span class="status-value" id="wifiChannel">--</span>
-      </div>
-    </div>
-
-    <!-- NTP Info -->
-    <div class="card">
-      <h2>NTP / Time</h2>
-      <div class="status-row">
         <span class="status-label">NTP Synced</span>
         <span class="status-value" id="ntpSynced">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Time Set</span>
-        <span class="status-value" id="timeSet">--</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">Current Time</span>
+        <span class="status-label">Time</span>
         <span class="status-value" id="currentTime">--</span>
       </div>
-      <div class="status-row">
-        <span class="status-label">Current Date</span>
-        <span class="status-value" id="currentDate">--</span>
-      </div>
     </div>
 
-    <!-- Bells Info -->
+    <!-- HARDWARE INFO -->
     <div class="card">
-      <h2>Bells Status</h2>
+      <h2>TM1621 Hardware</h2>
       <div class="status-row">
-        <span class="status-label">Bell Count</span>
-        <span class="status-value" id="bellCount">--</span>
+        <span class="status-label">CS</span>
+        <span class="status-value">GPIO25</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Global Enabled</span>
-        <span class="status-value" id="globalEnabled">--</span>
+        <span class="status-label">WR</span>
+        <span class="status-value">GPIO27</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Is Ringing</span>
-        <span class="status-value" id="isRinging">--</span>
+        <span class="status-label">DATA</span>
+        <span class="status-value">GPIO14</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Ringing Bell ID</span>
-        <span class="status-value" id="ringingBellId">--</span>
+        <span class="status-label">RD</span>
+        <span class="status-value">GPIO26</span>
+      </div>
+      <div class="info-text" style="margin-top:10px;">
+        <strong>TM1621 Protocol (datasheet):</strong><br>
+        - RAM: 32 x 4 bit<br>
+        - WRITE: 101 + Addr(6bit MSB) + Data(4bit LSB)<br>
+        - CMD: 100 + Cmd(8bit MSB) + X<br>
+        - Data sampled on WR rising edge
       </div>
     </div>
   </div>
 
-  <!-- Actions -->
-  <div class="card" style="margin-top:20px;">
+  <!-- ACTIONS -->
+  <div class="card" style="margin-top:15px;">
     <h2>Actions</h2>
     <button class="btn btn-warn" onclick="restart()">RESTART DEVICE</button>
-    <a href="/" class="btn btn-test" style="text-decoration:none;display:inline-block;">Back to Main</a>
+    <a href="/" class="btn btn-info" style="text-decoration:none;display:inline-block;">Back to Main</a>
+    <button class="btn btn-test" onclick="loadStatus()">Refresh Status</button>
   </div>
 
-  <!-- Log -->
-  <div class="card" style="margin-top:20px;">
+  <!-- LOG -->
+  <div class="card" style="margin-top:15px;">
     <h2>Activity Log</h2>
-    <div class="log" id="log"></div>
+    <div id="log"></div>
   </div>
 
   <script>
-    let eventSource = null;
-    let sseConnected = false;
+    // ============================================
+    // TM1621 Debug Console v3.0
+    // ============================================
 
     function log(msg, type = 'info') {
-      const logDiv = document.getElementById('log');
+      const el = document.getElementById('log');
       const time = new Date().toLocaleTimeString();
       const cls = type === 'error' ? 'log-error' : (type === 'warn' ? 'log-warn' : '');
-      logDiv.innerHTML = `<div class="log-entry ${cls}"><span class="log-time">[${time}]</span> ${msg}</div>` + logDiv.innerHTML;
-      if (logDiv.children.length > 100) {
-        logDiv.removeChild(logDiv.lastChild);
-      }
+      el.innerHTML = `<div class="${cls}"><span class="log-time">[${time}]</span> ${msg}</div>` + el.innerHTML;
+      if (el.children.length > 50) el.removeChild(el.lastChild);
     }
 
     async function api(url, options = {}) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-
       try {
         const res = await fetch(url, {
           ...options,
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal
+          headers: { 'Content-Type': 'application/json' }
         });
-        clearTimeout(timeout);
         return await res.json();
       } catch (e) {
-        clearTimeout(timeout);
-        if (e.name === 'AbortError') {
-          log('Timeout richiesta', 'warn');
-        } else {
-          log('ERROR: ' + e.message, 'error');
-        }
+        log('Error: ' + e.message, 'error');
         return null;
       }
     }
 
-    // === SSE per dati real-time (GPIO, tempo, stato) ===
-    function connectSSE() {
-      if (eventSource) eventSource.close();
-
-      log('SSE: Connecting...');
-      eventSource = new EventSource('/api/events');
-
-      eventSource.onopen = () => {
-        log('SSE: Connected (real-time updates active)');
-        sseConnected = true;
-        document.getElementById('lastUpdate').textContent = 'SSE: Connected';
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const d = JSON.parse(event.data);
-          updateFromSSE(d);
-        } catch (e) {
-          log('SSE parse error', 'error');
-        }
-      };
-
-      eventSource.onerror = () => {
-        log('SSE: Disconnected, reconnecting...', 'warn');
-        sseConnected = false;
-        document.getElementById('lastUpdate').textContent = 'SSE: Reconnecting...';
-        eventSource.close();
-        setTimeout(connectSSE, 3000);
-      };
-    }
-
-    function updateFromSSE(d) {
-      // GPIO states
-      if (d.btn !== undefined) {
-        setStateIndicator('btnState', d.btn === 1);
-        document.getElementById('btnText').textContent = d.btn === 1 ? 'PRESSED' : 'Released';
-      }
-      if (d.relay !== undefined) setStateIndicator('relayState', d.relay === 1);
-      if (d.ledW !== undefined) setStateIndicator('ledWifiState', d.ledW === 1);
-      if (d.ledR !== undefined) setStateIndicator('ledRelayState', d.ledR === 1);
-
-      // Time
-      if (d.h !== undefined && d.m !== undefined) {
-        const timeStr = String(d.h).padStart(2,'0') + ':' + String(d.m).padStart(2,'0');
-        document.getElementById('currentTime').textContent = timeStr;
-      }
-
-      // Ringing status
-      if (d.ring !== undefined) setBoolValue('isRinging', d.ring === 1);
-      if (d.ringId !== undefined) document.getElementById('ringingBellId').textContent = d.ringId || '-';
-
-      // Uptime
-      if (d.up !== undefined) document.getElementById('uptime').textContent = formatUptime(d.up);
-
-      // Heap
-      if (d.heap !== undefined) document.getElementById('freeHeap').textContent = formatBytes(d.heap);
-
-      // WiFi state
-      if (d.wifi !== undefined) {
-        const names = ['Disconnesso', 'Connessione...', 'Connesso', 'Sincronizzato', 'AP Mode'];
-        document.getElementById('wifiState').textContent = names[d.wifi] || 'Sconosciuto';
-      }
-
-      // NTP
-      if (d.ntp !== undefined) setBoolValue('ntpSynced', d.ntp === 1);
-
-      // Global
-      if (d.global !== undefined) setBoolValue('globalEnabled', d.global === 1);
-
-      // Update timestamp
-      document.getElementById('lastUpdate').textContent = 'SSE: ' + new Date().toLocaleTimeString();
-    }
-
-    // === Polling per dati pesanti (display buffer, WiFi details, heap min) ===
-    async function loadHeavyData() {
-      const data = await api('/api/debug/status');
-      if (!data) return;
-
-      // Display Status (dati pesanti)
-      setBoolValue('dispInit', data.dispInit);
-      setBoolValue('dispOn', data.dispOn);
-      document.getElementById('dispContent').textContent = data.dispContent || '-';
-      document.getElementById('dispUpdates').textContent = data.dispUpdates || '0';
-      document.getElementById('dispBuffer').textContent = data.dispBuffer || '-';
-      document.getElementById('dispParams').textContent = data.dispParams || '-';
-      document.getElementById('dispCmdMode').textContent = data.cmdModeName || '--';
-      if (data.cmdMode !== undefined) {
-        document.getElementById('cmdMode').value = data.cmdMode;
-      }
-      // Test Mode status
-      if (data.testMode !== undefined) {
-        updateTestModeUI(data.testMode);
-      }
-
-      // System Info (dati che cambiano poco)
-      document.getElementById('version').textContent = data.version;
-      document.getElementById('cpuFreq').textContent = data.cpuFreq + ' MHz';
-      document.getElementById('minFreeHeap').textContent = formatBytes(data.minFreeHeap);
-      document.getElementById('flashSize').textContent = formatBytes(data.flashSize);
-
-      // WiFi Info dettagliato
-      document.getElementById('wifiState').textContent = data.wifiStateName;
-      document.getElementById('wifiSSID').textContent = data.wifiSSID || '-';
-      document.getElementById('wifiIP').textContent = data.wifiIP;
-      document.getElementById('wifiMAC').textContent = data.wifiMAC;
-      document.getElementById('wifiRSSI').textContent = data.wifiRSSI + ' dBm';
-      document.getElementById('wifiChannel').textContent = data.wifiChannel;
-
-      // NTP Info
-      setBoolValue('ntpSynced', data.ntpSynced);
-      setBoolValue('timeSet', data.timeSet);
-      document.getElementById('currentDate').textContent = data.currentDate;
-
-      // Bells Info
-      document.getElementById('bellCount').textContent = data.bellCount;
-      setBoolValue('globalEnabled', data.globalEnabled);
-      setBoolValue('isRinging', data.isRinging);
-      document.getElementById('ringingBellId').textContent = data.ringingBellId || '-';
-    }
-
-    function setStateIndicator(id, state) {
-      const el = document.getElementById(id);
-      el.className = 'gpio-state ' + (state ? 'on' : 'off');
-    }
-
-    function setBoolValue(id, value) {
-      const el = document.getElementById(id);
-      el.textContent = value ? 'YES' : 'NO';
-      el.className = 'status-value ' + (value ? '' : 'off');
-    }
-
-    function formatBytes(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-      return (bytes/1024/1024).toFixed(1) + ' MB';
-    }
-
-    function formatUptime(seconds) {
-      const h = Math.floor(seconds / 3600);
-      const m = Math.floor((seconds % 3600) / 60);
-      const s = seconds % 60;
-      return `${h}h ${m}m ${s}s`;
-    }
-
-    async function setGpio(gpio, state) {
-      log(`Setting ${gpio} -> ${state ? 'ON' : 'OFF'}`);
-      const result = await api('/api/debug/gpio', {
-        method: 'POST',
-        body: JSON.stringify({ gpio, state })
-      });
-      if (result && result.success) {
-        log(`${gpio} set successfully`);
-      }
-      // SSE aggiornera' automaticamente lo stato GPIO
-    }
-
-    async function testDisplay(test) {
-      log(`Display test: ${test}`);
-      const result = await api('/api/debug/display', {
+    // === Display Tests ===
+    async function testCmd(test) {
+      log(`Test: ${test}`);
+      const r = await api('/api/debug/display', {
         method: 'POST',
         body: JSON.stringify({ test })
       });
-      if (result) {
-        if (result.success) {
-          log(`Display: ${result.message || 'OK'}`);
-        } else {
-          log(`Display error: ${result.error || 'unknown'}`, 'error');
-        }
-      }
-      // Ricarica dati display dopo test
-      setTimeout(loadHeavyDataSafe, 500);
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
     }
 
-    async function testDisplayNumber() {
-      const value = parseInt(document.getElementById('displayNum').value) || 0;
-      log(`Display number: ${value}`);
-      await api('/api/debug/display', {
+    async function testPattern(val) {
+      log(`Pattern: 0x${val.toString(16)}`);
+      const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'number', value })
+        body: JSON.stringify({ test: 'pattern', value: val })
       });
-      setTimeout(loadHeavyDataSafe, 500);
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
     }
 
-    async function testRaw4bit() {
-      const addr = parseInt(document.getElementById('raw4Addr').value) || 0;
-      const data = parseInt(document.getElementById('raw4Data').value) || 0x0F;
-      log(`Raw 4bit: addr=${addr} data=0x${data.toString(16).toUpperCase()}`, 'warn');
-      await api('/api/debug/display', {
+    async function writeNibble() {
+      const addr = parseInt(document.getElementById('nibbleAddr').value) || 0;
+      const data = parseInt(document.getElementById('nibbleData').value) || 0;
+      log(`Write nibble: addr=${addr} data=0x${data.toString(16)}`, 'warn');
+      const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'raw4', addr, data })
+        body: JSON.stringify({ test: 'write_nibble', addr, data })
       });
-      setTimeout(loadHeavyDataSafe, 500);
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
     }
 
-    async function testRawWrite() {
-      const addr = parseInt(document.getElementById('rawAddr').value, 16) || 0x10;
-      const data = parseInt(document.getElementById('rawData').value, 16) || 0xFF;
-      log(`Raw 8bit: addr=0x${addr.toString(16).toUpperCase()} data=0x${data.toString(16).toUpperCase()}`, 'warn');
-      await api('/api/debug/display', {
+    async function writeMulti() {
+      const addr = parseInt(document.getElementById('multiAddr').value) || 0;
+      const count = parseInt(document.getElementById('multiCount').value) || 4;
+      const value = parseInt(document.getElementById('multiValue').value) || 0xF;
+      log(`Write multi: addr=${addr} count=${count} val=0x${value.toString(16)}`, 'warn');
+      const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'raw', addr, data })
+        body: JSON.stringify({ test: 'write_multi', addr, count, value })
       });
-      setTimeout(loadHeavyDataSafe, 500);
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
     }
 
-    async function testFill() {
+    async function fillRam() {
+      const value = parseInt(document.getElementById('fillValue').value) || 0xFF;
+      log(`Fill RAM: 0x${value.toString(16)}`);
+      const r = await api('/api/debug/display', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'fill', value })
+      });
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
+    }
+
+    async function fillAt() {
       const addr = parseInt(document.getElementById('fillAddr').value) || 0;
-      const value = parseInt(document.getElementById('fillValue').value) || 255;
-      log(`Fill memory: addr=0x${addr.toString(16).toUpperCase()} value=0x${value.toString(16).toUpperCase()}`);
-      await api('/api/debug/display', {
+      const count = parseInt(document.getElementById('fillCount').value) || 8;
+      const value = parseInt(document.getElementById('fillVal').value) || 0xFF;
+      log(`Fill: ${count}x 0x${value.toString(16).toUpperCase()} @ addr ${addr}`, 'warn');
+      const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'fill', addr, value, count: 16 })
+        body: JSON.stringify({ test: 'fill_at', addr, count, value })
       });
-      setTimeout(loadHeavyDataSafe, 500);
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
     }
 
-    async function testCmd() {
-      const cmd = parseInt(document.getElementById('cmdSelect').value) || 3;
-      log(`Send command: 0x${cmd.toString(16).toUpperCase()}`, 'warn');
-      await api('/api/debug/display', {
+    async function sendCmd(cmd) {
+      log(`Send cmd: 0x${cmd.toString(16).toUpperCase()}`, 'warn');
+      const r = await api('/api/debug/display', {
         method: 'POST',
         body: JSON.stringify({ test: 'cmd', cmd })
       });
+      if (r && r.message) log(r.message);
     }
 
-    async function setParam(test, selectId) {
-      const value = parseInt(document.getElementById(selectId).value);
-      log(`Set param ${test}: ${value}`);
-      const result = await api('/api/debug/display', {
+    async function sendCustomCmd() {
+      const cmd = parseInt(document.getElementById('customCmd').value, 16) || 0;
+      await sendCmd(cmd);
+    }
+
+    async function setPulse() {
+      const value = parseInt(document.getElementById('pulseWidth').value) || 5;
+      log(`Set pulse: ${value} us`);
+      const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test, value })
+        body: JSON.stringify({ test: 'set_pulse', value })
       });
-      if (result && result.message) {
-        log(`TM1621: ${result.message}`);
-      }
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
     }
 
+    async function setBias() {
+      const value = parseInt(document.getElementById('biasSelect').value) || 0x28;
+      log(`Set bias: 0x${value.toString(16).toUpperCase()}`);
+      const r = await api('/api/debug/display', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'set_bias', value })
+      });
+      if (r && r.message) log(r.message);
+      setTimeout(loadStatus, 300);
+    }
+
+    // === Test Mode ===
     async function setTestMode(enable) {
-      log(`Setting test mode: ${enable ? 'ON' : 'OFF'}`, 'warn');
-      const result = await api(`/api/display/test_mode?enable=${enable ? 1 : 0}`);
-      if (result && result.success) {
-        log(`Test mode: ${result.message}`);
+      log(`Test mode: ${enable ? 'ON' : 'OFF'}`, 'warn');
+      const r = await api(`/api/display/test_mode?enable=${enable ? 1 : 0}`);
+      if (r && r.success) {
         updateTestModeUI(enable);
-      } else {
-        log('Errore cambio test mode', 'error');
+        log(r.message);
       }
     }
 
@@ -807,87 +623,114 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
       const box = document.getElementById('testModeBox');
       const status = document.getElementById('testModeStatus');
       if (enabled) {
-        box.style.background = '#030';
-        box.style.borderColor = '#0f0';
-        status.textContent = 'ON - ATTIVO';
+        box.className = 'test-box active';
+        status.textContent = 'ATTIVO';
         status.style.color = '#0f0';
       } else {
-        box.style.background = '#300';
-        box.style.borderColor = '#f00';
+        box.className = 'test-box';
         status.textContent = 'OFF';
         status.style.color = '#888';
       }
     }
 
-    async function setCmdMode() {
-      const mode = parseInt(document.getElementById('cmdMode').value);
-      const name = mode === 0 ? 'emsyscode' : 'Tasmota';
-      log(`Setting cmd mode: ${name}`, 'warn');
-      const result = await api(`/api/display/set_cmd_mode?mode=${mode}`);
-      if (result && result.success) {
-        log(`Cmd mode: ${result.message}`);
-        document.getElementById('cmdModeStatus').textContent = name;
-        document.getElementById('dispCmdMode').textContent = name;
-      } else {
-        log('Errore cambio cmd mode', 'error');
-      }
-      setTimeout(loadHeavyDataSafe, 500);
+    // === GPIO ===
+    async function setGpio(gpio, state) {
+      log(`GPIO ${gpio}: ${state ? 'ON' : 'OFF'}`);
+      await api('/api/debug/gpio', {
+        method: 'POST',
+        body: JSON.stringify({ gpio, state })
+      });
+      setTimeout(loadStatus, 300);
     }
 
-    async function refreshParams() {
-      log('Refreshing TM1621 params...');
-      const result = await api('/api/debug/display', {
-        method: 'POST',
-        body: JSON.stringify({ test: 'get_params' })
-      });
-      if (result) {
-        document.getElementById('dispParams').textContent = result.params || '-';
-        document.getElementById('dispBuffer').textContent = result.buffer || '-';
-        document.getElementById('dispContent').textContent = result.content || '-';
-        document.getElementById('dispUpdates').textContent = result.updates || '0';
-        log(`Params: ${result.params}`);
+    // === Status ===
+    async function loadStatus() {
+      const d = await api('/api/debug/status');
+      if (!d) return;
+
+      // TM1621 Status
+      setBool('dispInit', d.dispInit);
+      setBool('dispOn', d.dispOn);
+      document.getElementById('dispBias').textContent = d.dispBias || '--';
+      document.getElementById('dispPulse').textContent = (d.dispPulse || '--') + ' us';
+      document.getElementById('dispWrites').textContent = d.dispWrites || '0';
+      document.getElementById('dispCmds').textContent = d.dispCmds || '0';
+      updateTestModeUI(d.testMode);
+
+      // RAM Grid
+      updateRamGrid(d.dispRam || '');
+
+      // GPIO
+      setLed('btnLed', d.button);
+      document.getElementById('btnText').textContent = d.button ? 'PRESSED' : 'Released';
+      setLed('relayLed', d.relay);
+      setLed('ledWifiLed', d.ledWifi);
+      setLed('ledRelayLed', d.ledRelay);
+
+      // System
+      document.getElementById('version').textContent = d.version || '--';
+      document.getElementById('uptime').textContent = formatUptime(d.uptime || 0);
+      document.getElementById('freeHeap').textContent = formatBytes(d.freeHeap || 0);
+      document.getElementById('wifiState').textContent = d.wifiStateName || '--';
+      document.getElementById('wifiIP').textContent = d.wifiIP || '--';
+      setBool('ntpSynced', d.ntpSynced);
+      document.getElementById('currentTime').textContent = d.currentTime || '--';
+
+      document.getElementById('lastUpdate').textContent = 'Last update: ' + new Date().toLocaleTimeString();
+    }
+
+    function updateRamGrid(ramStr) {
+      const grid = document.getElementById('ramGrid');
+      // Parse RAM string: "XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX" (16 bytes = 32 hex chars)
+      const hex = ramStr.replace(/ /g, '');
+      let html = '';
+      // Mostra 16 byte (32 caratteri hex, 2 per byte)
+      for (let i = 0; i < 16; i++) {
+        const val = hex.substring(i*2, i*2+2) || '00';
+        const active = val !== '00' ? 'active' : '';
+        html += `<div class="ram-cell ${active}" title="Addr ${i}">0x${val}</div>`;
       }
+      grid.innerHTML = html;
+    }
+
+    function setBool(id, val) {
+      const el = document.getElementById(id);
+      el.textContent = val ? 'YES' : 'NO';
+      el.className = 'status-value ' + (val ? '' : 'off');
+    }
+
+    function setLed(id, on) {
+      document.getElementById(id).className = 'gpio-led ' + (on ? 'on' : 'off');
+    }
+
+    function formatUptime(sec) {
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      return `${h}h ${m}m ${s}s`;
+    }
+
+    function formatBytes(b) {
+      if (b < 1024) return b + ' B';
+      return (b / 1024).toFixed(1) + ' KB';
     }
 
     async function restart() {
       if (!confirm('Riavviare il dispositivo?')) return;
-      log('Restarting device...', 'warn');
+      log('Restarting...', 'warn');
       await api('/api/debug/restart', { method: 'POST' });
     }
 
-    // Request management for heavy data
-    let heavyDataPending = false;
-
-    async function loadHeavyDataSafe() {
-      if (heavyDataPending) return;
-      heavyDataPending = true;
-      try {
-        await loadHeavyData();
-      } finally {
-        heavyDataPending = false;
-      }
-    }
-
     // Disattiva test mode quando si lascia la pagina
-    window.addEventListener('beforeunload', function() {
-      // Chiamata sincrona per disattivare test mode
+    window.addEventListener('beforeunload', () => {
       navigator.sendBeacon('/api/display/test_mode?enable=0');
     });
 
     // Init
-    log('Debug console v2.2 initialized');
-    log('SSE for real-time GPIO/time updates');
-    log('Polling every 30s for heavy data (display, WiFi)');
-    log('Test mode si disattiva automaticamente uscendo dalla pagina');
-
-    // Carica dati pesanti una volta all'avvio
-    loadHeavyDataSafe();
-
-    // Connetti SSE per aggiornamenti real-time
-    connectSSE();
-
-    // Polling dati pesanti ogni 30 secondi (display buffer, WiFi details)
-    setInterval(loadHeavyDataSafe, 30000);
+    log('TM1621 Debug Console v3.0');
+    log('Driver basato su datasheet ufficiale');
+    loadStatus();
+    setInterval(loadStatus, 5000);
   </script>
 </body>
 </html>
