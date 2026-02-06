@@ -11,7 +11,8 @@
       "WebFetch(domain:templates.blakadder.com)",
       "WebFetch(domain:devices.esphome.io)",
       "WebFetch(domain:www.esphome.io)",
-      "WebFetch(domain:api-docs.esphome.io)"
+      "WebFetch(domain:api-docs.esphome.io)",
+      "WebFetch(domain:www.elektroda.com)"
     ]
   }
 }

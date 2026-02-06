@@ -1,6 +1,6 @@
-# Bell-Manager ESP32 v2.0.1
+# Bell-Manager ESP32 v2.1
 
-Sistema di gestione campanelle per ambienti scolastici o lavorativi, basato su **Sonoff POW Elite 16A (POWR316D)** con interfaccia web integrata e sincronizzazione oraria via NTP.
+Sistema di gestione campanelle per ambienti scolastici o lavorativi, basato su **Sonoff POW Elite 16A (POWR316D)** con interfaccia web integrata, display LCD e sincronizzazione oraria via NTP.
 
 ---
 
@@ -8,27 +8,30 @@ Sistema di gestione campanelle per ambienti scolastici o lavorativi, basato su *
 
 1. [Caratteristiche](#caratteristiche)
 2. [Requisiti Hardware](#requisiti-hardware)
-3. [Configurazione Arduino IDE](#configurazione-arduino-ide)
-4. [Caricamento del Firmware](#caricamento-del-firmware)
-5. [Primo Avvio](#primo-avvio)
-6. [Interfaccia Web](#interfaccia-web)
-7. [Funzioni del Pulsante](#funzioni-del-pulsante)
-8. [Indicatori LED](#indicatori-led)
-9. [Specifiche Tecniche](#specifiche-tecniche)
-10. [Riferimenti Hardware](#riferimenti-hardware)
+3. [Display LCD TM1621](#display-lcd-tm1621)
+4. [Configurazione Arduino IDE](#configurazione-arduino-ide)
+5. [Caricamento del Firmware](#caricamento-del-firmware)
+6. [Primo Avvio](#primo-avvio)
+7. [Interfaccia Web](#interfaccia-web)
+8. [Funzioni del Pulsante](#funzioni-del-pulsante)
+9. [Indicatori LED](#indicatori-led)
+10. [Specifiche Tecniche](#specifiche-tecniche)
+11. [Riferimenti Hardware](#riferimenti-hardware)
 
 ---
 
 ## Caratteristiche
 
+- **Display LCD integrato** che mostra ora corrente, stato sistema e avvisi
 - **Gestione campanelle programmabili** con orario, durata e giorni della settimana
 - **Sincronizzazione automatica NTP** ogni 10 minuti
 - **Interfaccia web responsive** accessibile da qualsiasi dispositivo
-- **Modalita WiFi Station** con fallback automatico ad Access Point
+- **Modalità WiFi Station** con fallback automatico ad Access Point
 - **Persistenza dati** su memoria non volatile (NVS)
 - **LED di pre-avviso**: lampeggia 1 minuto prima e rapidamente 10 secondi prima della campanella
 - **Controllo manuale** via pulsante fisico o interfaccia web
 - **Configurazione fuso orario** e ora legale
+- **Pagina di debug** per diagnostica display e sistema
 
 ---
 
@@ -52,6 +55,57 @@ Sistema di gestione campanelle per ambienti scolastici o lavorativi, basato su *
 | 3V3        | 3.3V           |
 
 **IMPORTANTE**: Non alimentare il dispositivo dalla rete 220V durante il flashing!
+
+---
+
+## Display LCD TM1621
+
+Il Sonoff POWR316D integra un display LCD controllato dal chip **TM1621**. Il display mostra informazioni diverse in base allo stato del sistema.
+
+### Cosa Mostra il Display
+
+| Stato Sistema | Visualizzazione | Descrizione |
+|---------------|-----------------|-------------|
+| **Avvio** | `----` | Sistema in fase di inizializzazione |
+| **Modalità AP** | `Conn` | In attesa di configurazione WiFi |
+| **Connessione WiFi** | `----` | Connessione in corso, NTP non sincronizzato |
+| **Sincronizzato** | `12:34` | Ora corrente (aggiornata ogni secondo) |
+| **Campanella attiva** | `bELL` | Relay attivo, campanella in corso |
+
+### Comportamento Automatico
+
+- **All'accensione**: mostra `----` durante il boot
+- **In modalità Access Point**: mostra `Conn` per indicare che è necessaria la configurazione
+- **Dopo sincronizzazione NTP**: mostra l'**ora corrente** in formato `HH:MM`
+- **Durante la campanella**: mostra `bELL` per tutta la durata del suono
+- **Al termine della campanella**: torna a mostrare l'ora
+
+### Specifiche Tecniche Display
+
+| Parametro | Valore |
+|-----------|--------|
+| Controller | TM1621 (Titan Micro) |
+| Tipo | LCD 7 segmenti, 2 righe x 4 cifre |
+| Interfaccia | 4-wire serial (bit-bang) |
+| BIAS | 1/2, 3 COM (0x24) |
+| Clock | RC interno 256kHz |
+
+### Pinout Display
+
+| GPIO | Funzione |
+|------|----------|
+| GPIO14 | DATA |
+| GPIO25 | CS (Chip Select) |
+| GPIO26 | RD (Read) |
+| GPIO27 | WR (Write/Clock) |
+
+### Pagina di Debug
+
+Accedi a `http://<IP>/debug` per:
+- Visualizzare lo stato del display
+- Testare i segmenti manualmente
+- Configurare parametri (BIAS, pulse width)
+- Diagnosticare problemi
 
 ---
 
@@ -298,17 +352,17 @@ Il dispositivo espone le seguenti API:
 | GPIO0 | Pulsante | Active LOW, pin BOOT |
 | GPIO5 | LED WiFi | Active LOW |
 | GPIO13 | Relay 16A | Active HIGH |
-| GPIO14 | TM1621 DATA | Display LCD (non usato) |
+| GPIO14 | TM1621 DATA | Display LCD |
 | GPIO16 | CSE7759B RX | Sensore energia (non usato) |
 | GPIO18 | LED Relay | Active LOW |
-| GPIO25 | TM1621 CS | Display LCD (non usato) |
-| GPIO26 | TM1621 RD | Display LCD (non usato) |
-| GPIO27 | TM1621 WR | Display LCD (non usato) |
+| GPIO25 | TM1621 CS | Display LCD |
+| GPIO26 | TM1621 RD | Display LCD |
+| GPIO27 | TM1621 WR | Display LCD |
 
 ### Componenti Hardware
 
 - **Relay**: Monostabile 16A, pilotato da GPIO13 (HIGH = ON)
-- **Display LCD**: Controller TM1621 (non utilizzato in questo firmware)
+- **Display LCD**: Controller TM1621, mostra ora e stato sistema
 - **Sensore energia**: CSE7759B via UART (non utilizzato in questo firmware)
 - **LED**: Entrambi active LOW (accesi con livello logico basso)
 
@@ -341,9 +395,17 @@ Il dispositivo espone le seguenti API:
 - Controlla che l'ora sia sincronizzata (LED WiFi fisso)
 - Verifica i giorni della settimana configurati
 
+### Il display non funziona o mostra caratteri strani
+
+- Accedi alla pagina di debug: `http://<IP>/debug`
+- Attiva **TEST MODE** per bloccare gli aggiornamenti automatici
+- Prova il pulsante **CLEAR** e poi **All ON**
+- Se non appare nulla, prova a cambiare il BIAS (0x24 funziona meglio)
+- Controlla il Monitor Seriale per messaggi di errore TM1621
+
 ### Come resettare il dispositivo
 
-Tieni premuto il pulsante per **10 secondi** per entrare in modalita AP e riconfigurare il WiFi.
+Tieni premuto il pulsante per **10 secondi** per entrare in modalità AP e riconfigurare il WiFi.
 
 ---
 
@@ -357,4 +419,3 @@ Questo progetto e rilasciato come open source per scopi educativi e personali.
 
 - Hardware basato su Sonoff POW Elite 16A
 - Riferimenti: [ESPHome](https://devices.esphome.io/devices/sonoff-pow-elite-16a/), [Tasmota](https://templates.blakadder.com/sonoff_POWR316D.html)
-- Altre info da chatgpt
