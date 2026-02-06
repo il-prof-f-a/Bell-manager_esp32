@@ -565,8 +565,8 @@ void handleDebugStatus() {
         return;
     }
 
-    // Buffer più grande per debug status (ridotto rispetto a prima)
-    static char debugBuffer[768];
+    // Buffer per debug status
+    static char debugBuffer[1024];
 
     // Leggi GPIO una volta sola
     bool btnPressed = digitalRead(PIN_BUTTON) == LOW;
@@ -580,16 +580,19 @@ void handleDebugStatus() {
         "{"
         // GPIO
         "\"button\":%s,\"relay\":%s,\"ledWifi\":%s,\"ledRelay\":%s,"
-        // System (ridotto)
+        // System
         "\"freeHeap\":%u,\"minFreeHeap\":%u,\"uptime\":%lu,"
+        "\"cpuFreq\":%u,\"flashSize\":%u,"
         // WiFi
         "\"wifiState\":%d,\"wifiStateName\":\"%s\",\"wifiRSSI\":%d,\"wifiIP\":\"%s\","
+        "\"wifiSSID\":\"%s\",\"wifiMAC\":\"%s\",\"wifiChannel\":%d,"
         // NTP
         "\"ntpSynced\":%s,\"timeSet\":%s,\"currentTime\":\"%s\",\"currentDate\":\"%s\","
         // Bells
         "\"bellCount\":%d,\"globalEnabled\":%s,\"isRinging\":%s,"
         // Display
         "\"dispInit\":%s,\"dispOn\":%s,\"dispContent\":\"%s\",\"dispUpdates\":%u,"
+        "\"dispBuffer\":\"%s\",\"dispParams\":\"%s\",\"cmdMode\":%d,\"cmdModeName\":\"%s\",\"testMode\":%s,"
         // Version
         "\"version\":\"%s\""
         "}",
@@ -602,11 +605,16 @@ void handleDebugStatus() {
         ESP.getFreeHeap(),
         ESP.getMinFreeHeap(),
         millis() / 1000,
+        ESP.getCpuFreqMHz(),
+        ESP.getFlashChipSize(),
         // WiFi values
         (int)getWiFiState(),
         getWiFiStateName(),
         WiFi.RSSI(),
         getLocalIP().c_str(),
+        getWiFiSSID(),
+        WiFi.macAddress().c_str(),
+        WiFi.channel(),
         // NTP values
         isNtpSynced() ? "true" : "false",
         isTimeSet() ? "true" : "false",
@@ -621,6 +629,11 @@ void handleDebugStatus() {
         isDisplayOn() ? "true" : "false",
         getDisplayContent().c_str(),
         getDisplayUpdateCount(),
+        getDisplayBufferHex().c_str(),
+        getDisplayParams().c_str(),
+        tm1621_cmd_mode,
+        tm1621_cmd_mode == 0 ? "emsyscode" : "Tasmota",
+        tm1621_test_mode ? "true" : "false",
         // Version
         FIRMWARE_VERSION
     );
@@ -688,84 +701,194 @@ void handleDebugTestDisplay() {
     if (strcmp(test, "on") == 0) {
         displayOn();
         respDoc["message"] = "LCD acceso";
-        Serial.println("[DEBUG] Display -> LCD ON");
     }
     else if (strcmp(test, "off") == 0) {
         displayOff();
         respDoc["message"] = "LCD spento";
-        Serial.println("[DEBUG] Display -> LCD OFF");
     }
-    // === Content Tests ===
+    // === Content Tests (usano versioni forzate per ignorare test mode) ===
     else if (strcmp(test, "clear") == 0) {
-        clearDisplay();
+        clearDisplayForced();
         respDoc["message"] = "Display pulito";
-        Serial.println("[DEBUG] Display -> clear");
     }
     else if (strcmp(test, "all") == 0) {
-        displayAllOn();
+        displayAllOnForced();
         respDoc["message"] = "Tutti segmenti ON";
-        Serial.println("[DEBUG] Display -> all segments ON");
+    }
+    else if (strcmp(test, "all_on") == 0) {
+        tm1621_all_on();
+        respDoc["message"] = "All ON (entrambi addr 0x00 e 0x10)";
+    }
+    else if (strcmp(test, "all_off") == 0) {
+        tm1621_all_off();
+        respDoc["message"] = "All OFF";
     }
     else if (strcmp(test, "time") == 0) {
         displayTime(12, 34);
         respDoc["message"] = "Mostrato 12:34";
-        Serial.println("[DEBUG] Display -> 12:34");
     }
     else if (strcmp(test, "bell") == 0) {
         displayBell();
         respDoc["message"] = "Mostrato bELL";
-        Serial.println("[DEBUG] Display -> bELL");
     }
     else if (strcmp(test, "loading") == 0) {
         displayLoading();
         respDoc["message"] = "Mostrato ----";
-        Serial.println("[DEBUG] Display -> ----");
     }
     else if (strcmp(test, "number") == 0) {
-        int value = doc["value"] | 0;
+        int value = doc["value"] | 1234;
         displayNumber(0, value, 0);
         respDoc["message"] = String("Mostrato ") + value;
-        Serial.printf("[DEBUG] Display -> %d\n", value);
     }
     // === Low-Level Diagnostics ===
-    else if (strcmp(test, "fill_ff") == 0) {
-        testDisplayFillRam(0xFF);
-        respDoc["message"] = "RAM riempita con 0xFF";
-        Serial.println("[DEBUG] Display -> Fill RAM 0xFF");
-    }
-    else if (strcmp(test, "fill_00") == 0) {
-        testDisplayFillRam(0x00);
-        respDoc["message"] = "RAM riempita con 0x00";
-        Serial.println("[DEBUG] Display -> Fill RAM 0x00");
-    }
-    else if (strcmp(test, "fill_aa") == 0) {
-        testDisplayFillRam(0xAA);
-        respDoc["message"] = "RAM riempita con 0xAA";
-        Serial.println("[DEBUG] Display -> Fill RAM 0xAA");
-    }
-    else if (strcmp(test, "fill_55") == 0) {
-        testDisplayFillRam(0x55);
-        respDoc["message"] = "RAM riempita con 0x55";
-        Serial.println("[DEBUG] Display -> Fill RAM 0x55");
+    else if (strcmp(test, "fill") == 0) {
+        uint8_t value = doc["value"] | 0xFF;
+        uint8_t addr = doc["addr"] | 0x00;
+        uint8_t count = doc["count"] | 16;
+        tm1621_fill_memory(value, addr, count);
+        char msg[80];
+        snprintf(msg, sizeof(msg), "Fill 0x%02X @ addr=0x%02X count=%d", value, addr, count);
+        respDoc["message"] = msg;
     }
     else if (strcmp(test, "test_pins") == 0) {
-        testDisplayPinSequence();
-        respDoc["message"] = "Test pin eseguito (vedi Serial)";
-        Serial.println("[DEBUG] Display -> Test pins");
+        tm1621_test_all_pins();
+        respDoc["message"] = "Test pin completato (vedi Serial)";
     }
     else if (strcmp(test, "reinit") == 0) {
-        initDisplay();
+        reinitDisplay();
         respDoc["message"] = "Display re-inizializzato";
-        Serial.println("[DEBUG] Display -> Re-init");
     }
     else if (strcmp(test, "raw") == 0) {
         uint8_t addr = doc["addr"] | 0x10;
         uint8_t data = doc["data"] | 0xFF;
-        testDisplayRawWrite(addr, data);
+        tm1621_write_raw(addr, data);
         char msg[64];
-        snprintf(msg, sizeof(msg), "Raw write addr=0x%02X data=0x%02X", addr, data);
+        snprintf(msg, sizeof(msg), "Raw 8bit: addr=0x%02X data=0x%02X", addr, data);
         respDoc["message"] = msg;
-        Serial.printf("[DEBUG] Display -> Raw write 0x%02X @ 0x%02X\n", data, addr);
+    }
+    // Scrittura 4 bit (singolo nibble) - come da datasheet TM1621
+    else if (strcmp(test, "raw4") == 0) {
+        uint8_t addr = doc["addr"] | 0x00;
+        uint8_t data = doc["data"] | 0x0F;
+        tm1621_write_raw_4bit(addr, data);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "Raw 4bit: addr=%d data=0x%X", addr, data & 0x0F);
+        respDoc["message"] = msg;
+    }
+    // Test: 1 byte con funzione multi (per debug)
+    else if (strcmp(test, "multi_1byte") == 0) {
+        uint8_t data[1] = {0xFF};
+        tm1621_write_raw_multi(0x10, data, 1);
+        respDoc["message"] = "Multi 1 byte: 0xFF @ 0x10";
+    }
+    // Test: 2 byte consecutivi
+    else if (strcmp(test, "multi_2byte") == 0) {
+        uint8_t data[2] = {0xFF, 0xFF};
+        tm1621_write_raw_multi(0x10, data, 2);
+        respDoc["message"] = "Multi 2 byte: 0xFF,0xFF @ 0x10";
+    }
+    // Test scrittura 8 byte come Tasmota (addr 0x10, 8 byte 0xFF)
+    else if (strcmp(test, "tasmota_8xff") == 0) {
+        uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+        tm1621_write_raw_multi(0x10, data, 8);
+        respDoc["message"] = "Tasmota style: 8x 0xFF @ 0x10";
+    }
+    // Test scrittura 8 byte tutti 0x00
+    else if (strcmp(test, "tasmota_8x00") == 0) {
+        uint8_t data[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        tm1621_write_raw_multi(0x10, data, 8);
+        respDoc["message"] = "Tasmota style: 8x 0x00 @ 0x10";
+    }
+    // Test pattern 8888 (tutti segmenti) - usa digit code Tasmota
+    else if (strcmp(test, "tasmota_8888") == 0) {
+        // Tasmota digit codes per "8" = 0x7F (row0) e 0xF7 (row1)
+        uint8_t data[8] = {0x7F, 0x7F, 0x7F, 0x7F, 0xF7, 0xF7, 0xF7, 0xF7};
+        tm1621_write_raw_multi(0x10, data, 8);
+        respDoc["message"] = "Tasmota style: 8888 @ 0x10";
+    }
+    else if (strcmp(test, "cmd") == 0) {
+        uint8_t cmd = doc["cmd"] | 0x03;
+        tm1621_send_single_cmd(cmd);
+        char msg[48];
+        snprintf(msg, sizeof(msg), "Comando inviato: 0x%02X", cmd);
+        respDoc["message"] = msg;
+    }
+    // === CONFIGURAZIONE PARAMETRI TM1621 ===
+    else if (strcmp(test, "set_pulse") == 0) {
+        uint8_t us = doc["value"] | 10;
+        tm1621_set_pulse_width(us);
+        respDoc["message"] = String("Pulse width: ") + us + " us";
+    }
+    else if (strcmp(test, "set_addr") == 0) {
+        uint8_t addr = doc["value"] | 0x10;
+        tm1621_set_mem_address(addr);
+        char msg[48];
+        snprintf(msg, sizeof(msg), "Memory address: 0x%02X", addr);
+        respDoc["message"] = msg;
+    }
+    else if (strcmp(test, "set_lsb") == 0) {
+        bool lsb = doc["value"] | true;
+        tm1621_set_lsb_first(lsb);
+        respDoc["message"] = String("Bit order: ") + (lsb ? "LSB" : "MSB") + " first";
+    }
+    else if (strcmp(test, "set_bias") == 0) {
+        uint8_t bias = doc["value"] | 0x29;
+        tm1621_set_bias(bias);
+        char msg[48];
+        snprintf(msg, sizeof(msg), "BIAS: 0x%02X", bias);
+        respDoc["message"] = msg;
+    }
+    else if (strcmp(test, "set_reset") == 0) {
+        uint8_t mode = doc["value"] | 0;
+        tm1621_set_reset_mode(mode);
+        const char* names[] = {"Tasmota", "ESPHome", "Minimal", "Extended"};
+        respDoc["message"] = String("Reset mode: ") + names[mode % 4];
+    }
+    else if (strcmp(test, "get_params") == 0) {
+        respDoc["params"] = getDisplayParams();
+        respDoc["buffer"] = getDisplayBufferHex();
+        respDoc["content"] = getDisplayContent();
+        respDoc["updates"] = getDisplayUpdateCount();
+        respDoc["initialized"] = isDisplayInitialized();
+        respDoc["displayOn"] = isDisplayOn();
+        respDoc["message"] = "Parametri correnti";
+    }
+    // === PRESET CONFIGURAZIONI ===
+    else if (strcmp(test, "preset_tasmota") == 0) {
+        tm1621_set_cmd_mode(1);  // Tasmota mode
+        tm1621_set_pulse_width(10);
+        tm1621_set_mem_address(0x00);  // Tasmota usa 0x00
+        tm1621_set_bias(0x29);
+        tm1621_set_reset_mode(0);
+        reinitDisplay();
+        respDoc["message"] = "Preset Tasmota applicato (cmd MSB, data LSB)";
+    }
+    else if (strcmp(test, "preset_esphome") == 0) {
+        tm1621_set_cmd_mode(1);  // Simile a Tasmota
+        tm1621_set_pulse_width(5);
+        tm1621_set_mem_address(0x00);
+        tm1621_set_bias(0x29);
+        tm1621_set_reset_mode(1);
+        reinitDisplay();
+        respDoc["message"] = "Preset ESPHome applicato";
+    }
+    else if (strcmp(test, "preset_fast") == 0) {
+        tm1621_set_cmd_mode(0);  // emsyscode mode
+        tm1621_set_pulse_width(2);
+        tm1621_set_mem_address(0x00);
+        tm1621_set_bias(0x29);
+        tm1621_set_reset_mode(2);
+        reinitDisplay();
+        respDoc["message"] = "Preset Fast/emsyscode applicato";
+    }
+    else if (strcmp(test, "preset_slow") == 0) {
+        tm1621_set_cmd_mode(1);  // Tasmota mode
+        tm1621_set_pulse_width(20);
+        tm1621_set_mem_address(0x00);
+        tm1621_set_bias(0x29);
+        tm1621_set_reset_mode(3);
+        reinitDisplay();
+        respDoc["message"] = "Preset Slow applicato";
     }
     else {
         sendError(400, "Test non valido");
@@ -775,6 +898,49 @@ void handleDebugTestDisplay() {
     String response;
     serializeJson(respDoc, response);
     server.send(200, "application/json", response);
+    Serial.printf("[DEBUG] Display test: %s\n", test);
+}
+
+void handleSetCmdMode() {
+    addCorsHeaders();
+
+    if (!server.hasArg("mode")) {
+        sendError(400, "Parametro 'mode' mancante (0=emsyscode, 1=Tasmota)");
+        return;
+    }
+
+    uint8_t mode = server.arg("mode").toInt();
+    if (mode > 1) {
+        sendError(400, "Modalita' non valida (0=emsyscode, 1=Tasmota)");
+        return;
+    }
+
+    tm1621_set_cmd_mode(mode);
+    reinitDisplay();
+
+    snprintf(jsonBuffer, sizeof(jsonBuffer),
+             "{\"success\":true,\"message\":\"Cmd mode: %s\",\"mode\":%d}",
+             mode == 0 ? "emsyscode" : "Tasmota", mode);
+    server.send(200, "application/json", jsonBuffer);
+    Serial.printf("[API] Cmd mode -> %s\n", mode == 0 ? "emsyscode" : "Tasmota");
+}
+
+void handleSetTestMode() {
+    addCorsHeaders();
+
+    if (!server.hasArg("enable")) {
+        sendError(400, "Parametro 'enable' mancante (0 o 1)");
+        return;
+    }
+
+    bool enable = server.arg("enable").toInt() == 1;
+    tm1621_set_test_mode(enable);
+
+    snprintf(jsonBuffer, sizeof(jsonBuffer),
+             "{\"success\":true,\"message\":\"Test mode: %s\",\"testMode\":%s}",
+             enable ? "ON" : "OFF", enable ? "true" : "false");
+    server.send(200, "application/json", jsonBuffer);
+    Serial.printf("[API] Test mode -> %s\n", enable ? "ON" : "OFF");
 }
 
 void handleDebugRestart() {
@@ -928,6 +1094,10 @@ void setupApiRoutes() {
     server.on("/api/debug/display", HTTP_OPTIONS, handleOptions);
     server.on("/api/debug/restart", HTTP_POST, handleDebugRestart);
     server.on("/api/debug/restart", HTTP_OPTIONS, handleOptions);
+    server.on("/api/display/set_cmd_mode", HTTP_GET, handleSetCmdMode);
+    server.on("/api/display/set_cmd_mode", HTTP_OPTIONS, handleOptions);
+    server.on("/api/display/test_mode", HTTP_GET, handleSetTestMode);
+    server.on("/api/display/test_mode", HTTP_OPTIONS, handleOptions);
 
     Serial.println("[API] Route registrate");
 }

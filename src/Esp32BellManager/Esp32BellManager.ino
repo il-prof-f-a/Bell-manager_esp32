@@ -110,6 +110,11 @@ void onWifiStateChanged(WiFiState newState) {
 // ============================================
 
 void handleRoot() {
+  // Disattiva test mode quando si torna alla home
+  if (tm1621_is_test_mode()) {
+    tm1621_set_test_mode(false);
+    Serial.println("[WEB] Test mode disattivato (uscita da debug)");
+  }
   server.send_P(200, "text/html", WEB_PAGE);
 }
 
