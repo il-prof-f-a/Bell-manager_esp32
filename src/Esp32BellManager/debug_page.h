@@ -4,8 +4,7 @@
 #include <pgmspace.h>
 
 // ============================================
-// Debug Page v3.0 - Per TM1621 Driver v4.0
-// Interfaccia di test basata sul datasheet ufficiale
+// Debug Page v5.0 - Per TM1621 Driver v8.0 (ESPEasy P148)
 // ============================================
 
 const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
@@ -86,23 +85,25 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
       font-family: monospace;
       font-size: 12px;
     }
-    input[type="number"] { width: 60px; }
+    input[type="number"] { width: 70px; }
+    input[type="text"] { width: 80px; }
 
-    .ram-grid {
+    .buf-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 2px;
       margin: 10px 0;
-      font-size: 9px;
+      font-size: 10px;
     }
-    .ram-cell {
+    .buf-cell {
       background: #000;
-      padding: 3px 2px;
+      padding: 4px 2px;
       text-align: center;
       border: 1px solid #333;
       color: #0f0;
     }
-    .ram-cell.active { background: #030; border-color: #0f0; }
+    .buf-cell.active { background: #030; border-color: #0f0; }
+    .buf-cell.header { background: #222; color: #888; font-weight: bold; }
 
     .test-box {
       background: #300;
@@ -117,7 +118,27 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
     }
 
     .info-text { color: #888; font-size: 10px; margin: 5px 0; }
-    .mono { font-family: monospace; }
+
+    .display-preview {
+      background: #000;
+      border: 2px solid #0a0;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      margin: 10px 0;
+    }
+    .display-row {
+      font-size: 28px;
+      font-weight: bold;
+      color: #0f0;
+      letter-spacing: 8px;
+      font-family: 'Courier New', monospace;
+    }
+    .display-units {
+      font-size: 10px;
+      color: #0a0;
+      margin-top: 2px;
+    }
 
     #log {
       background: #000;
@@ -131,14 +152,22 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
     .log-time { color: #666; }
     .log-error { color: #f00; }
     .log-warn { color: #ff0; }
+
+    .flex-row {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 5px 0;
+    }
   </style>
 </head>
 <body>
-  <h1>// TM1621 Debug Console v3.0</h1>
+  <h1>// TM1621 Debug Console v5.0 (ESPEasy P148)</h1>
   <div id="lastUpdate" style="color:#888;font-size:11px;margin-bottom:10px;">Last update: --</div>
 
   <div class="grid">
-    <!-- TEST MODE BOX -->
+    <!-- TEST MODE + STATUS -->
     <div class="card">
       <div class="test-box" id="testModeBox">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -150,7 +179,20 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
         <button class="btn btn-off" onclick="setTestMode(false)">DISATTIVA</button>
       </div>
 
+      <h2>Display Preview</h2>
+      <div class="display-preview">
+        <div class="display-row" id="prevRow0">----</div>
+        <div class="display-units" id="prevUnits0"></div>
+        <hr style="border-color:#030;margin:5px 0;">
+        <div class="display-row" id="prevRow1">----</div>
+        <div class="display-units" id="prevUnits1"></div>
+      </div>
+
       <h2>TM1621 Status</h2>
+      <div class="status-row">
+        <span class="status-label">Driver</span>
+        <span class="status-value">ESPEasy P148 v8.0</span>
+      </div>
       <div class="status-row">
         <span class="status-label">Initialized</span>
         <span class="status-value" id="dispInit">--</span>
@@ -160,12 +202,16 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
         <span class="status-value" id="dispOn">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">BIAS</span>
-        <span class="status-value" id="dispBias">--</span>
+        <span class="status-label">Row 0</span>
+        <span class="status-value" id="dispRow0">--</span>
       </div>
       <div class="status-row">
-        <span class="status-label">Pulse Width</span>
-        <span class="status-value" id="dispPulse">--</span>
+        <span class="status-label">Row 1</span>
+        <span class="status-value" id="dispRow1">--</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Units</span>
+        <span class="status-value" id="dispUnits">--</span>
       </div>
       <div class="status-row">
         <span class="status-label">Write Count</span>
@@ -176,190 +222,128 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
         <span class="status-value" id="dispCmds">--</span>
       </div>
 
-      <h3>RAM Mirror (32 x 4 bit)</h3>
-      <div id="ramGrid" class="ram-grid"></div>
+      <h3>Pixel Buffer (8 bytes @ 0x10)</h3>
+      <div id="bufGrid" class="buf-grid"></div>
     </div>
 
-    <!-- DISPLAY CONTROL -->
+    <!-- WRITE TEXT -->
     <div class="card">
-      <h2>Display Control</h2>
+      <h2>Write Text (writeString)</h2>
+      <p class="info-text">Scrive testo su una riga (max 4 caratteri). Supporta: 0-9, A-Z, -, ?</p>
 
+      <h3>Riga 1 (top)</h3>
+      <div class="flex-row">
+        <input type="text" id="writeRow0" value="----" maxlength="11">
+        <button class="btn btn-test" onclick="writeRow(0)">WRITE</button>
+      </div>
+
+      <h3>Riga 2 (bottom)</h3>
+      <div class="flex-row">
+        <input type="text" id="writeRow1" value="----" maxlength="11">
+        <button class="btn btn-test" onclick="writeRow(1)">WRITE</button>
+      </div>
+
+      <h3>Scrivi Entrambe (writeStrings)</h3>
+      <div class="flex-row">
+        <span>R1:</span>
+        <input type="text" id="writeBoth0" value="HELo" maxlength="11" style="width:60px;">
+        <span>R2:</span>
+        <input type="text" id="writeBoth1" value="1234" maxlength="11" style="width:60px;">
+        <button class="btn btn-test" onclick="writeBoth()">WRITE</button>
+      </div>
+
+      <h3>Quick Text</h3>
+      <div>
+        <button class="btn btn-info" onclick="writeQuick('----','----')">----</button>
+        <button class="btn btn-info" onclick="writeQuick('    ','    ')">Clear</button>
+        <button class="btn btn-info" onclick="writeQuick('8888','8888')">8888</button>
+        <button class="btn btn-info" onclick="writeQuick('1234','5678')">1234/5678</button>
+        <button class="btn btn-info" onclick="writeQuick('HELo','    ')">HELo</button>
+        <button class="btn btn-info" onclick="writeQuick('bELL','    ')">bELL</button>
+        <button class="btn btn-info" onclick="writeQuick('Conn','    ')">Conn</button>
+        <button class="btn btn-info" onclick="writeQuick('ABCD','EFGH')">ABCD/EFGH</button>
+      </div>
+
+      <h2>Write Float (writeFloat)</h2>
+      <p class="info-text">Scrive un numero con decimale. Es: 23.5 -> "23.5"</p>
+
+      <h3>Float Riga 1</h3>
+      <div class="flex-row">
+        <input type="number" id="float0" value="23.5" step="0.1">
+        <button class="btn btn-test" onclick="writeFloat(0)">WRITE</button>
+      </div>
+
+      <h3>Float Riga 2</h3>
+      <div class="flex-row">
+        <input type="number" id="float1" value="45.8" step="0.1">
+        <button class="btn btn-test" onclick="writeFloat(1)">WRITE</button>
+      </div>
+
+      <h3>Due Float (writeFloats)</h3>
+      <div class="flex-row">
+        <span>V1:</span>
+        <input type="number" id="floatBoth0" value="220.5" step="0.1" style="width:70px;">
+        <span>V2:</span>
+        <input type="number" id="floatBoth1" value="1.2" step="0.1" style="width:70px;">
+        <button class="btn btn-test" onclick="writeFloatBoth()">WRITE</button>
+      </div>
+    </div>
+
+    <!-- UNIT SYMBOLS -->
+    <div class="card">
+      <h2>Unit Symbols (setUnit)</h2>
+      <p class="info-text">Attiva/disattiva i simboli delle unita' di misura sul display</p>
+
+      <h3>Riga 1 (top) - Celsius / Fahrenheit / V / kWh</h3>
+      <div>
+        <button class="btn btn-info" onclick="setUnit('celsius')">Celsius</button>
+        <button class="btn btn-info" onclick="setUnit('fahrenheit')">Fahrenheit</button>
+        <button class="btn btn-info" onclick="setUnit('volt_amp')">V/A</button>
+        <button class="btn btn-info" onclick="setUnit('kwh_watt')">kWh/W</button>
+        <button class="btn btn-off" onclick="setUnit('none_top')">None (top)</button>
+      </div>
+
+      <h3>Riga 2 (bottom) - %RH / A / W</h3>
+      <div>
+        <button class="btn btn-info" onclick="setUnit('humidity')">%RH</button>
+        <button class="btn btn-info" onclick="setUnit('volt_amp_bot')">V/A</button>
+        <button class="btn btn-info" onclick="setUnit('kwh_watt_bot')">kWh/W</button>
+        <button class="btn btn-off" onclick="setUnit('none_bot')">None (bot)</button>
+      </div>
+
+      <h3>Preset Combinati</h3>
+      <div>
+        <button class="btn btn-warn" onclick="setUnit('clear_all')">Clear All Units</button>
+        <button class="btn btn-info" onclick="presetTemp()">Temp (C + %RH)</button>
+        <button class="btn btn-info" onclick="presetEnergy()">Energy (kWh + W)</button>
+        <button class="btn btn-info" onclick="presetPower()">Power (V + A)</button>
+      </div>
+
+      <h2>Raw Data (writeRawData)</h2>
+      <p class="info-text">Scrive 8 byte raw direttamente al pixel buffer (hex, 16 chars)</p>
+      <div class="flex-row">
+        <input type="text" id="rawData" value="FFFFFFFFFFFFFFFF" maxlength="16" style="width:150px;">
+        <button class="btn btn-warn" onclick="writeRaw()">WRITE RAW</button>
+      </div>
+      <div style="margin-top:5px;">
+        <button class="btn btn-info" onclick="setRawPreset('FFFFFFFFFFFFFFFF')" style="font-size:9px;">All ON</button>
+        <button class="btn btn-info" onclick="setRawPreset('0000000000000000')" style="font-size:9px;">All OFF</button>
+        <button class="btn btn-info" onclick="setRawPreset('FF000000000000FF')" style="font-size:9px;">Corners</button>
+        <button class="btn btn-info" onclick="setRawPreset('00FF00FF00FF00FF')" style="font-size:9px;">Alternate</button>
+      </div>
+
+      <h2>Display Control</h2>
       <h3>Power</h3>
       <div>
-        <button class="btn btn-on" onclick="testCmd('lcd_on')">LCD ON</button>
-        <button class="btn btn-off" onclick="testCmd('lcd_off')">LCD OFF</button>
-        <button class="btn btn-warn" onclick="testCmd('reinit')">Re-Init</button>
+        <button class="btn btn-on" onclick="dispCmd('lcd_on')">LCD ON</button>
+        <button class="btn btn-off" onclick="dispCmd('lcd_off')">LCD OFF</button>
+        <button class="btn btn-warn" onclick="dispCmd('reinit')">Re-Init</button>
       </div>
 
       <h3>Segment Test</h3>
       <div>
-        <button class="btn btn-test" onclick="testCmd('all_on')">All ON (0xFF)</button>
-        <button class="btn btn-test" onclick="testCmd('all_off')">All OFF</button>
-      </div>
-
-      <h3>Test Singoli Byte (0xFF)</h3>
-      <p class="info-text">Premi CLEAR prima, poi un byte alla volta per vedere quale digit si accende</p>
-      <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:5px;">
-        <button class="btn btn-off" onclick="testCmd('clear_all')" style="padding:4px 8px;">CLEAR</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:2px;">
-        <button class="btn btn-info" onclick="testCmd('b0')" style="padding:4px 6px;font-size:10px;">0</button>
-        <button class="btn btn-info" onclick="testCmd('b1')" style="padding:4px 6px;font-size:10px;">1</button>
-        <button class="btn btn-info" onclick="testCmd('b2')" style="padding:4px 6px;font-size:10px;">2</button>
-        <button class="btn btn-info" onclick="testCmd('b3')" style="padding:4px 6px;font-size:10px;">3</button>
-        <button class="btn btn-info" onclick="testCmd('b4')" style="padding:4px 6px;font-size:10px;">4</button>
-        <button class="btn btn-info" onclick="testCmd('b5')" style="padding:4px 6px;font-size:10px;">5</button>
-        <button class="btn btn-info" onclick="testCmd('b6')" style="padding:4px 6px;font-size:10px;">6</button>
-        <button class="btn btn-info" onclick="testCmd('b7')" style="padding:4px 6px;font-size:10px;">7</button>
-        <button class="btn btn-warn" onclick="testCmd('b8')" style="padding:4px 6px;font-size:10px;">8</button>
-        <button class="btn btn-warn" onclick="testCmd('b9')" style="padding:4px 6px;font-size:10px;">9</button>
-        <button class="btn btn-warn" onclick="testCmd('b10')" style="padding:4px 6px;font-size:10px;">10</button>
-        <button class="btn btn-warn" onclick="testCmd('b11')" style="padding:4px 6px;font-size:10px;">11</button>
-        <button class="btn btn-warn" onclick="testCmd('b12')" style="padding:4px 6px;font-size:10px;">12</button>
-        <button class="btn btn-warn" onclick="testCmd('b13')" style="padding:4px 6px;font-size:10px;">13</button>
-        <button class="btn btn-warn" onclick="testCmd('b14')" style="padding:4px 6px;font-size:10px;">14</button>
-        <button class="btn btn-warn" onclick="testCmd('b15')" style="padding:4px 6px;font-size:10px;">15</button>
-      </div>
-
-      <h3>Fill Personalizzato</h3>
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-        <span>Addr:</span>
-        <input type="number" id="fillAddr" value="0" min="0" max="31" style="width:50px;">
-        <span>Count:</span>
-        <input type="number" id="fillCount" value="8" min="1" max="32" style="width:50px;">
-        <span>Val:</span>
-        <select id="fillVal">
-          <option value="255">0xFF</option>
-          <option value="0">0x00</option>
-          <option value="170">0xAA</option>
-          <option value="85">0x55</option>
-          <option value="15">0x0F</option>
-          <option value="240">0xF0</option>
-        </select>
-        <button class="btn btn-warn" onclick="fillAt()">FILL</button>
-      </div>
-
-      <h3>Scrivi Singolo Nibble (4 bit)</h3>
-      <p class="info-text">RAM = 32 indirizzi, ogni addr = 4 bit (D0-D3)</p>
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-        <span>Addr:</span>
-        <input type="number" id="nibbleAddr" value="0" min="0" max="31">
-        <span>Data:</span>
-        <select id="nibbleData">
-          <option value="15">0xF (1111)</option>
-          <option value="0">0x0 (0000)</option>
-          <option value="1">0x1 (0001)</option>
-          <option value="2">0x2 (0010)</option>
-          <option value="4">0x4 (0100)</option>
-          <option value="8">0x8 (1000)</option>
-          <option value="5">0x5 (0101)</option>
-          <option value="10">0xA (1010)</option>
-          <option value="7">0x7 (0111)</option>
-          <option value="14">0xE (1110)</option>
-        </select>
-        <button class="btn btn-warn" onclick="writeNibble()">WRITE</button>
-      </div>
-
-      <h3>Scrivi Multi-Nibble</h3>
-      <p class="info-text">Scrive nibble consecutivi con auto-increment</p>
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-        <span>Addr:</span>
-        <input type="number" id="multiAddr" value="0" min="0" max="31">
-        <span>Count:</span>
-        <input type="number" id="multiCount" value="4" min="1" max="32">
-        <span>Val:</span>
-        <select id="multiValue">
-          <option value="15">0xF</option>
-          <option value="0">0x0</option>
-          <option value="5">0x5</option>
-          <option value="10">0xA</option>
-        </select>
-        <button class="btn btn-warn" onclick="writeMulti()">WRITE</button>
-      </div>
-
-      <h3>Fill RAM</h3>
-      <div style="display:flex;gap:5px;align-items:center;">
-        <span>Value:</span>
-        <select id="fillValue">
-          <option value="15">0xF (all ON)</option>
-          <option value="0">0x0 (all OFF)</option>
-          <option value="5">0x5 (0101)</option>
-          <option value="10">0xA (1010)</option>
-        </select>
-        <button class="btn btn-test" onclick="fillRam()">FILL ALL</button>
-      </div>
-    </div>
-
-    <!-- COMMANDS -->
-    <div class="card">
-      <h2>Send Command</h2>
-      <p class="info-text">Invia comando diretto al TM1621 (9 bit MSB first)</p>
-
-      <h3>System</h3>
-      <div>
-        <button class="btn btn-info" onclick="sendCmd(0x01)">SYS_EN (0x01)</button>
-        <button class="btn btn-info" onclick="sendCmd(0x00)">SYS_DIS (0x00)</button>
-        <button class="btn btn-info" onclick="sendCmd(0x03)">LCD_ON (0x03)</button>
-        <button class="btn btn-info" onclick="sendCmd(0x02)">LCD_OFF (0x02)</button>
-      </div>
-
-      <h3>BIAS/COM Config</h3>
-      <p class="info-text">POWR316D: 0x24 funziona meglio!</p>
-      <div>
-        <button class="btn btn-on" onclick="sendCmd(0x24)">0x24 (1/2, 3COM) OK!</button>
-        <button class="btn btn-info" onclick="sendCmd(0x25)">0x25 (1/3, 3COM)</button>
-        <button class="btn btn-info" onclick="sendCmd(0x28)">0x28 (1/2, 4COM)</button>
-        <button class="btn btn-info" onclick="sendCmd(0x29)">0x29 (1/3, 4COM)</button>
-      </div>
-
-      <h3>Clock Source</h3>
-      <div>
-        <button class="btn btn-info" onclick="sendCmd(0x18)">RC 256K (default)</button>
-        <button class="btn btn-info" onclick="sendCmd(0x14)">XTAL 32K</button>
-      </div>
-
-      <h3>Command Personalizzato</h3>
-      <div style="display:flex;gap:5px;align-items:center;">
-        <span>Cmd 0x</span>
-        <input type="text" id="customCmd" value="03" style="width:40px;">
-        <button class="btn btn-warn" onclick="sendCustomCmd()">SEND</button>
-      </div>
-    </div>
-
-    <!-- CONFIGURATION -->
-    <div class="card">
-      <h2>Configuration</h2>
-
-      <h3>Pulse Width (us)</h3>
-      <p class="info-text">Timing del clock seriale. Default: 5us.</p>
-      <div style="display:flex;gap:5px;align-items:center;">
-        <select id="pulseWidth">
-          <option value="1">1 us (fast)</option>
-          <option value="2">2 us</option>
-          <option value="5" selected>5 us (default)</option>
-          <option value="10">10 us</option>
-          <option value="20">20 us (slow)</option>
-        </select>
-        <button class="btn btn-info" onclick="setPulse()">SET</button>
-      </div>
-
-      <h3>BIAS Setting</h3>
-      <p class="info-text">Configura e invia comando BIAS</p>
-      <div style="display:flex;gap:5px;align-items:center;">
-        <select id="biasSelect">
-          <option value="40">0x28 - 1/2 bias, 4 COM</option>
-          <option value="41">0x29 - 1/3 bias, 4 COM</option>
-          <option value="36">0x24 - 1/2 bias, 3 COM</option>
-          <option value="37">0x25 - 1/3 bias, 3 COM</option>
-        </select>
-        <button class="btn btn-info" onclick="setBias()">SET</button>
-      </div>
-
-      <h3>Pin Test</h3>
-      <p class="info-text">Testa i pin fisici del display</p>
-      <div>
-        <button class="btn btn-warn" onclick="testCmd('test_pins')">Test Sequenza Pin</button>
-        <button class="btn btn-info" onclick="testCmd('print_status')">Print Status (Serial)</button>
+        <button class="btn btn-test" onclick="dispCmd('all_on')">All ON</button>
+        <button class="btn btn-test" onclick="dispCmd('all_off')">All OFF</button>
       </div>
     </div>
 
@@ -399,10 +383,7 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
           <button class="btn btn-off" onclick="setGpio('ledRelay',false)">OFF</button>
         </div>
       </div>
-    </div>
 
-    <!-- SYSTEM INFO -->
-    <div class="card">
       <h2>System Info</h2>
       <div class="status-row">
         <span class="status-label">Version</span>
@@ -432,34 +413,15 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
         <span class="status-label">Time</span>
         <span class="status-value" id="currentTime">--</span>
       </div>
-    </div>
 
-    <!-- HARDWARE INFO -->
-    <div class="card">
-      <h2>TM1621 Hardware</h2>
-      <div class="status-row">
-        <span class="status-label">CS</span>
-        <span class="status-value">GPIO25</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">WR</span>
-        <span class="status-value">GPIO27</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">DATA</span>
-        <span class="status-value">GPIO14</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">RD</span>
-        <span class="status-value">GPIO26</span>
-      </div>
-      <div class="info-text" style="margin-top:10px;">
-        <strong>TM1621 Protocol (datasheet):</strong><br>
-        - RAM: 32 x 4 bit<br>
-        - WRITE: 101 + Addr(6bit MSB) + Data(4bit LSB)<br>
-        - CMD: 100 + Cmd(8bit MSB) + X<br>
-        - Data sampled on WR rising edge
-      </div>
+      <h2>TM1621 Hardware (POWR316D)</h2>
+      <div class="status-row"><span class="status-label">DA (Data)</span><span class="status-value">GPIO14</span></div>
+      <div class="status-row"><span class="status-label">CS</span><span class="status-value">GPIO25</span></div>
+      <div class="status-row"><span class="status-label">RD</span><span class="status-value">GPIO26</span></div>
+      <div class="status-row"><span class="status-label">WR (Clock)</span><span class="status-value">GPIO27</span></div>
+      <div class="status-row"><span class="status-label">BIAS</span><span class="status-value">0x29 (1/3, 4COM)</span></div>
+      <div class="status-row"><span class="status-label">Pulse</span><span class="status-value">10 us</span></div>
+      <div class="status-row"><span class="status-label">Buffer addr</span><span class="status-value">0x10 (8 bytes)</span></div>
     </div>
   </div>
 
@@ -469,6 +431,7 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
     <button class="btn btn-warn" onclick="restart()">RESTART DEVICE</button>
     <a href="/" class="btn btn-info" style="text-decoration:none;display:inline-block;">Back to Main</a>
     <button class="btn btn-test" onclick="loadStatus()">Refresh Status</button>
+    <button class="btn btn-info" onclick="dispCmd('print_status')">Print to Serial</button>
   </div>
 
   <!-- LOG -->
@@ -478,10 +441,6 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
   </div>
 
   <script>
-    // ============================================
-    // TM1621 Debug Console v3.0
-    // ============================================
-
     function log(msg, type = 'info') {
       const el = document.getElementById('log');
       const time = new Date().toLocaleTimeString();
@@ -503,107 +462,136 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
       }
     }
 
-    // === Display Tests ===
-    async function testCmd(test) {
-      log(`Test: ${test}`);
+    // === Write Text ===
+    async function writeRow(row) {
+      const text = document.getElementById('writeRow' + row).value;
+      log(`writeString row${row}: "${text}"`);
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test })
+        body: JSON.stringify({ test: 'write_row', row, text })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
     }
 
-    async function testPattern(val) {
-      log(`Pattern: 0x${val.toString(16)}`);
+    async function writeBoth() {
+      const str1 = document.getElementById('writeBoth0').value;
+      const str2 = document.getElementById('writeBoth1').value;
+      log(`writeStrings: "${str1}" / "${str2}"`);
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'pattern', value: val })
+        body: JSON.stringify({ test: 'write_both', str1, str2 })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
     }
 
-    async function writeNibble() {
-      const addr = parseInt(document.getElementById('nibbleAddr').value) || 0;
-      const data = parseInt(document.getElementById('nibbleData').value) || 0;
-      log(`Write nibble: addr=${addr} data=0x${data.toString(16)}`, 'warn');
+    async function writeQuick(s1, s2) {
+      log(`Quick: "${s1}" / "${s2}"`);
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'write_nibble', addr, data })
+        body: JSON.stringify({ test: 'write_both', str1: s1, str2: s2 })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
     }
 
-    async function writeMulti() {
-      const addr = parseInt(document.getElementById('multiAddr').value) || 0;
-      const count = parseInt(document.getElementById('multiCount').value) || 4;
-      const value = parseInt(document.getElementById('multiValue').value) || 0xF;
-      log(`Write multi: addr=${addr} count=${count} val=0x${value.toString(16)}`, 'warn');
+    // === Write Float ===
+    async function writeFloat(row) {
+      const value = parseFloat(document.getElementById('float' + row).value) || 0;
+      log(`writeFloat row${row}: ${value}`);
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'write_multi', addr, count, value })
+        body: JSON.stringify({ test: 'write_float', row, value })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
     }
 
-    async function fillRam() {
-      const value = parseInt(document.getElementById('fillValue').value) || 0xFF;
-      log(`Fill RAM: 0x${value.toString(16)}`);
+    async function writeFloatBoth() {
+      const v1 = parseFloat(document.getElementById('floatBoth0').value) || 0;
+      const v2 = parseFloat(document.getElementById('floatBoth1').value) || 0;
+      log(`writeFloats: ${v1} / ${v2}`);
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'fill', value })
+        body: JSON.stringify({ test: 'write_floats', value1: v1, value2: v2 })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
     }
 
-    async function fillAt() {
-      const addr = parseInt(document.getElementById('fillAddr').value) || 0;
-      const count = parseInt(document.getElementById('fillCount').value) || 8;
-      const value = parseInt(document.getElementById('fillVal').value) || 0xFF;
-      log(`Fill: ${count}x 0x${value.toString(16).toUpperCase()} @ addr ${addr}`, 'warn');
+    // === Unit Symbols ===
+    async function setUnit(unit) {
+      log(`setUnit: ${unit}`, 'warn');
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'fill_at', addr, count, value })
+        body: JSON.stringify({ test: 'set_unit', unit })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
     }
 
-    async function sendCmd(cmd) {
-      log(`Send cmd: 0x${cmd.toString(16).toUpperCase()}`, 'warn');
-      const r = await api('/api/debug/display', {
+    async function presetTemp() {
+      await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'cmd', cmd })
+        body: JSON.stringify({ test: 'set_unit', unit: 'celsius' })
       });
-      if (r && r.message) log(r.message);
+      await api('/api/debug/display', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'set_unit', unit: 'humidity' })
+      });
+      log('Preset: Celsius + %RH');
+      setTimeout(loadStatus, 300);
     }
 
-    async function sendCustomCmd() {
-      const cmd = parseInt(document.getElementById('customCmd').value, 16) || 0;
-      await sendCmd(cmd);
+    async function presetEnergy() {
+      await api('/api/debug/display', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'set_unit', unit: 'kwh_watt' })
+      });
+      await api('/api/debug/display', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'set_unit', unit: 'kwh_watt_bot' })
+      });
+      log('Preset: kWh + W');
+      setTimeout(loadStatus, 300);
     }
 
-    async function setPulse() {
-      const value = parseInt(document.getElementById('pulseWidth').value) || 5;
-      log(`Set pulse: ${value} us`);
+    async function presetPower() {
+      await api('/api/debug/display', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'set_unit', unit: 'volt_amp' })
+      });
+      await api('/api/debug/display', {
+        method: 'POST',
+        body: JSON.stringify({ test: 'set_unit', unit: 'volt_amp_bot' })
+      });
+      log('Preset: V + A');
+      setTimeout(loadStatus, 300);
+    }
+
+    // === Raw Data ===
+    async function writeRaw() {
+      const hex = document.getElementById('rawData').value;
+      log(`writeRawData: 0x${hex}`, 'warn');
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'set_pulse', value })
+        body: JSON.stringify({ test: 'write_raw', hex })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
     }
 
-    async function setBias() {
-      const value = parseInt(document.getElementById('biasSelect').value) || 0x28;
-      log(`Set bias: 0x${value.toString(16).toUpperCase()}`);
+    function setRawPreset(hex) {
+      document.getElementById('rawData').value = hex;
+    }
+
+    // === Display Commands ===
+    async function dispCmd(cmd) {
+      log(`Command: ${cmd}`);
       const r = await api('/api/debug/display', {
         method: 'POST',
-        body: JSON.stringify({ test: 'set_bias', value })
+        body: JSON.stringify({ test: cmd })
       });
       if (r && r.message) log(r.message);
       setTimeout(loadStatus, 300);
@@ -651,14 +639,30 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
       // TM1621 Status
       setBool('dispInit', d.dispInit);
       setBool('dispOn', d.dispOn);
-      document.getElementById('dispBias').textContent = d.dispBias || '--';
-      document.getElementById('dispPulse').textContent = (d.dispPulse || '--') + ' us';
+      document.getElementById('dispRow0').textContent = d.dispRow0 || '--';
+      document.getElementById('dispRow1').textContent = d.dispRow1 || '--';
+      document.getElementById('dispUnits').textContent = d.dispUnits || 'none';
       document.getElementById('dispWrites').textContent = d.dispWrites || '0';
       document.getElementById('dispCmds').textContent = d.dispCmds || '0';
       updateTestModeUI(d.testMode);
 
-      // RAM Grid
-      updateRamGrid(d.dispRam || '');
+      // Display Preview
+      document.getElementById('prevRow0').textContent = (d.dispRow0 || '----').substring(0, 4);
+      document.getElementById('prevRow1').textContent = (d.dispRow1 || '----').substring(0, 4);
+
+      // Units preview
+      let u0 = '', u1 = '';
+      const units = d.dispUnits || '';
+      if (units.indexOf('C') >= 0) u0 += 'C ';
+      if (units.indexOf('F') >= 0) u0 += 'F ';
+      if (units.indexOf('V/A') >= 0) { u0 += 'V'; u1 += 'A'; }
+      if (units.indexOf('kWh/W') >= 0) { u0 += 'kWh'; u1 += 'W'; }
+      if (units.indexOf('%RH') >= 0) u1 += '%RH';
+      document.getElementById('prevUnits0').textContent = u0;
+      document.getElementById('prevUnits1').textContent = u1;
+
+      // Buffer Grid
+      updateBufGrid(d.dispBuffer || '');
 
       // GPIO
       setLed('btnLed', d.button);
@@ -679,16 +683,25 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
       document.getElementById('lastUpdate').textContent = 'Last update: ' + new Date().toLocaleTimeString();
     }
 
-    function updateRamGrid(ramStr) {
-      const grid = document.getElementById('ramGrid');
-      // Parse RAM string: "XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX" (16 bytes = 32 hex chars)
-      const hex = ramStr.replace(/ /g, '');
+    function updateBufGrid(bufStr) {
+      const grid = document.getElementById('bufGrid');
+      const hex = bufStr.replace(/ /g, '');
       let html = '';
-      // Mostra 16 byte (32 caratteri hex, 2 per byte)
-      for (let i = 0; i < 16; i++) {
+      // Header
+      html += '<div class="buf-cell header">Idx</div>';
+      html += '<div class="buf-cell header">Hex</div>';
+      html += '<div class="buf-cell header">Bin</div>';
+      html += '<div class="buf-cell header">Row</div>';
+      const rowLabels = ['R1-D0','R1-D1','R1-D2','R1-D3','R2-D3','R2-D2','R2-D1','R2-D0'];
+      for (let i = 0; i < 8; i++) {
         const val = hex.substring(i*2, i*2+2) || '00';
-        const active = val !== '00' ? 'active' : '';
-        html += `<div class="ram-cell ${active}" title="Addr ${i}">0x${val}</div>`;
+        const num = parseInt(val, 16);
+        const active = num !== 0 ? 'active' : '';
+        const bin = num.toString(2).padStart(8, '0');
+        html += `<div class="buf-cell ${active}">${i}</div>`;
+        html += `<div class="buf-cell ${active}">0x${val}</div>`;
+        html += `<div class="buf-cell ${active}">${bin}</div>`;
+        html += `<div class="buf-cell ${active}">${rowLabels[i]}</div>`;
       }
       grid.innerHTML = html;
     }
@@ -727,8 +740,7 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
     });
 
     // Init
-    log('TM1621 Debug Console v3.0');
-    log('Driver basato su datasheet ufficiale');
+    log('TM1621 Debug Console v5.0 (ESPEasy P148)');
     loadStatus();
     setInterval(loadStatus, 5000);
   </script>

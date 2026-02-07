@@ -590,9 +590,10 @@ void handleDebugStatus() {
         "\"ntpSynced\":%s,\"timeSet\":%s,\"currentTime\":\"%s\",\"currentDate\":\"%s\","
         // Bells
         "\"bellCount\":%d,\"globalEnabled\":%s,\"isRinging\":%s,"
-        // Display TM1621 v4.0
-        "\"dispInit\":%s,\"dispOn\":%s,\"dispContent\":\"%s\",\"dispWrites\":%u,\"dispCmds\":%u,"
-        "\"dispRam\":\"%s\",\"dispBias\":\"0x%02X\",\"dispPulse\":%d,\"testMode\":%s,"
+        // Display TM1621 v8.0 (ESPEasy P148)
+        "\"dispInit\":%s,\"dispOn\":%s,\"dispRow0\":\"%s\",\"dispRow1\":\"%s\","
+        "\"dispUnits\":\"%s\",\"dispWrites\":%u,\"dispCmds\":%u,"
+        "\"dispBuffer\":\"%s\",\"testMode\":%s,"
         // Version
         "\"version\":\"%s\""
         "}",
@@ -624,15 +625,15 @@ void handleDebugStatus() {
         bellCount,
         settings.globalEnabled ? "true" : "false",
         systemStatus.isRinging ? "true" : "false",
-        // Display TM1621 v4.0
+        // Display TM1621 v8.0 (ESPEasy P148)
         tm1621_is_initialized() ? "true" : "false",
         tm1621_is_lcd_on() ? "true" : "false",
-        getDisplayContent().c_str(),
+        tm1621_get_row(0).c_str(),
+        tm1621_get_row(1).c_str(),
+        tm1621_get_units_str().c_str(),
         tm1621_get_write_count(),
         tm1621_get_cmd_count(),
-        tm1621_get_ram_hex().c_str(),
-        tm1621_get_bias(),
-        tm1621_get_pulse_width(),
+        tm1621_get_buffer_hex().c_str(),
         tm1621_is_test_mode() ? "true" : "false",
         // Version
         FIRMWARE_VERSION
@@ -698,8 +699,8 @@ void handleDebugTestDisplay() {
     respDoc["success"] = true;
 
     // ============================================
-    // TM1621 Driver v4.0 - API basata su datasheet
-    // RAM: 32 x 4 bit (indirizzi 0-31, ogni addr = 4 bit)
+    // TM1621 Driver v8.0 (ESPEasy P148)
+    // Display: 2 righe x 4 digit, buffer 8 byte @ 0x10
     // ============================================
 
     // === POWER CONTROL ===
@@ -713,178 +714,119 @@ void handleDebugTestDisplay() {
     }
     else if (strcmp(test, "reinit") == 0) {
         tm1621_reinit();
-        respDoc["message"] = "Display re-inizializzato";
+        respDoc["message"] = "Display re-inizializzato (ESPEasy P148)";
     }
 
     // === SEGMENT TESTS ===
     else if (strcmp(test, "all_on") == 0) {
         tm1621_test_all_on();
-        respDoc["message"] = "Tutti i segmenti ON (RAM = 0xF)";
+        respDoc["message"] = "Tutti i segmenti ON (8x 0xFF @ 0x10)";
     }
     else if (strcmp(test, "all_off") == 0) {
         tm1621_test_all_off();
-        respDoc["message"] = "Tutti i segmenti OFF (RAM = 0x0)";
-    }
-    else if (strcmp(test, "pattern") == 0) {
-        uint8_t pattern = doc["value"] | 0x05;
-        tm1621_test_pattern(pattern);
-        char msg[48];
-        snprintf(msg, sizeof(msg), "Pattern 0x%X su tutta la RAM", pattern & 0x0F);
-        respDoc["message"] = msg;
+        respDoc["message"] = "Tutti i segmenti OFF";
     }
 
-    // === WRITE SINGOLO NIBBLE (4 bit) ===
-    // Questo e' il test fondamentale: scrive 4 bit a un indirizzo
-    else if (strcmp(test, "write_nibble") == 0) {
-        uint8_t addr = doc["addr"] | 0;
-        uint8_t nibble = doc["data"] | 0x0F;
-        tm1621_write_nibble(addr, nibble);
+    // === WRITE STRING (writeString) ===
+    else if (strcmp(test, "write_row") == 0) {
+        int row = doc["row"] | 0;
+        const char* text = doc["text"] | "----";
+        bool firstrow = (row == 0);
+        tm1621_write_string(firstrow, text);
         char msg[64];
-        snprintf(msg, sizeof(msg), "Scritto nibble 0x%X @ addr %d", nibble & 0x0F, addr);
+        snprintf(msg, sizeof(msg), "writeString row%d: \"%s\"", row, text);
         respDoc["message"] = msg;
     }
 
-    // === WRITE MULTI-NIBBLE ===
-    // Scrive piu' nibble consecutivi a partire da un indirizzo
-    else if (strcmp(test, "write_multi") == 0) {
-        uint8_t addr = doc["addr"] | 0;
-        uint8_t count = doc["count"] | 4;
-        uint8_t value = doc["value"] | 0x0F;
+    // === WRITE STRINGS (writeStrings) ===
+    else if (strcmp(test, "write_both") == 0) {
+        const char* str1 = doc["str1"] | "----";
+        const char* str2 = doc["str2"] | "----";
+        tm1621_write_strings(str1, str2);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "writeStrings: \"%s\" / \"%s\"", str1, str2);
+        respDoc["message"] = msg;
+    }
 
-        // Crea array di nibble tutti uguali
-        uint8_t data[32];
-        for (int i = 0; i < count && i < 32; i++) {
-            data[i] = value & 0x0F;
+    // === WRITE FLOAT (writeFloat) ===
+    else if (strcmp(test, "write_float") == 0) {
+        int row = doc["row"] | 0;
+        float value = doc["value"] | 0.0f;
+        bool firstrow = (row == 0);
+        tm1621_write_float(firstrow, value);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "writeFloat row%d: %.1f", row, value);
+        respDoc["message"] = msg;
+    }
+
+    // === WRITE FLOATS (writeFloats) ===
+    else if (strcmp(test, "write_floats") == 0) {
+        float v1 = doc["value1"] | 0.0f;
+        float v2 = doc["value2"] | 0.0f;
+        tm1621_write_floats(v1, v2);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "writeFloats: %.1f / %.1f", v1, v2);
+        respDoc["message"] = msg;
+    }
+
+    // === WRITE RAW DATA (writeRawData) ===
+    else if (strcmp(test, "write_raw") == 0) {
+        const char* hex = doc["hex"] | "0000000000000000";
+        uint64_t rawdata = 0;
+        for (int i = 0; hex[i] && i < 16; i++) {
+            rawdata <<= 4;
+            char c = tolower(hex[i]);
+            if (c >= '0' && c <= '9') rawdata |= (c - '0');
+            else if (c >= 'a' && c <= 'f') rawdata |= (c - 'a' + 10);
         }
-        tm1621_write_ram(addr, data, count);
+        tm1621_write_raw(rawdata);
+        char msg[48];
+        snprintf(msg, sizeof(msg), "writeRawData: 0x%s", hex);
+        respDoc["message"] = msg;
+    }
 
+    // === SET UNIT (setUnit) ===
+    else if (strcmp(test, "set_unit") == 0) {
+        const char* unit = doc["unit"] | "none";
         char msg[64];
-        snprintf(msg, sizeof(msg), "Scritti %d nibble (0x%X) da addr %d", count, value & 0x0F, addr);
+
+        if (strcmp(unit, "celsius") == 0) {
+            tm1621_set_unit(TM1621_UNIT_CELSIUS, true);
+            snprintf(msg, sizeof(msg), "Unit: Celsius (row 0)");
+        } else if (strcmp(unit, "fahrenheit") == 0) {
+            tm1621_set_unit(TM1621_UNIT_FAHRENHEIT, true);
+            snprintf(msg, sizeof(msg), "Unit: Fahrenheit (row 0)");
+        } else if (strcmp(unit, "humidity") == 0) {
+            tm1621_set_unit(TM1621_UNIT_HUMIDITY, false);
+            snprintf(msg, sizeof(msg), "Unit: Humidity (row 1)");
+        } else if (strcmp(unit, "volt_amp") == 0) {
+            tm1621_set_unit(TM1621_UNIT_VOLT_AMP, true);
+            snprintf(msg, sizeof(msg), "Unit: V/A (row 0)");
+        } else if (strcmp(unit, "volt_amp_bot") == 0) {
+            tm1621_set_unit(TM1621_UNIT_VOLT_AMP, false);
+            snprintf(msg, sizeof(msg), "Unit: V/A (row 1)");
+        } else if (strcmp(unit, "kwh_watt") == 0) {
+            tm1621_set_unit(TM1621_UNIT_KWH_WATT, true);
+            snprintf(msg, sizeof(msg), "Unit: kWh/W (row 0)");
+        } else if (strcmp(unit, "kwh_watt_bot") == 0) {
+            tm1621_set_unit(TM1621_UNIT_KWH_WATT, false);
+            snprintf(msg, sizeof(msg), "Unit: kWh/W (row 1)");
+        } else if (strcmp(unit, "none_top") == 0) {
+            tm1621_set_unit(TM1621_UNIT_NONE, true);
+            snprintf(msg, sizeof(msg), "Unit: None (row 0)");
+        } else if (strcmp(unit, "none_bot") == 0) {
+            tm1621_set_unit(TM1621_UNIT_NONE, false);
+            snprintf(msg, sizeof(msg), "Unit: None (row 1)");
+        } else if (strcmp(unit, "clear_all") == 0) {
+            tm1621_clear_all_units();
+            snprintf(msg, sizeof(msg), "Cleared all unit symbols");
+        } else {
+            snprintf(msg, sizeof(msg), "Unit sconosciuta: %s", unit);
+        }
+
+        // Aggiorna display per mostrare i nuovi simboli
+        tm1621_refresh();
         respDoc["message"] = msg;
-    }
-
-    // === FILL RAM (16 byte da addr 0) ===
-    else if (strcmp(test, "fill") == 0) {
-        uint8_t value = doc["value"] | 0xFF;
-        tm1621_fill_ram(value);
-        char msg[48];
-        snprintf(msg, sizeof(msg), "Fill 16 bytes: 0x%02X @ addr 0", value);
-        respDoc["message"] = msg;
-    }
-
-    // === FILL AT (addr e count configurabili) ===
-    else if (strcmp(test, "fill_at") == 0) {
-        uint8_t value = doc["value"] | 0xFF;
-        uint8_t addr = doc["addr"] | 0;
-        uint8_t count = doc["count"] | 8;
-        tm1621_fill_at(value, addr, count);
-        char msg[64];
-        snprintf(msg, sizeof(msg), "Fill %d bytes: 0x%02X @ addr %d", count, value, addr);
-        respDoc["message"] = msg;
-    }
-
-    // === TEST RAPIDI per trovare la configurazione giusta ===
-    else if (strcmp(test, "test_addr0") == 0) {
-        tm1621_fill_at(0xFF, 0, 8);
-        respDoc["message"] = "8x 0xFF @ addr 0";
-    }
-    else if (strcmp(test, "test_addr8") == 0) {
-        tm1621_fill_at(0xFF, 8, 8);
-        respDoc["message"] = "8x 0xFF @ addr 8";
-    }
-    else if (strcmp(test, "test_addr16") == 0) {
-        tm1621_fill_at(0xFF, 16, 8);
-        respDoc["message"] = "8x 0xFF @ addr 16 (0x10)";
-    }
-    else if (strcmp(test, "test_all32") == 0) {
-        tm1621_fill_at(0xFF, 0, 32);
-        respDoc["message"] = "32x 0xFF @ addr 0 (tutta la RAM)";
-    }
-
-    // === TEST SINGOLI BYTE per mapping segmenti ===
-    else if (strcmp(test, "byte_at") == 0) {
-        uint8_t addr = doc["addr"] | 0;
-        uint8_t value = doc["value"] | 0xFF;
-        tm1621_write_byte(addr, value);
-        char msg[64];
-        snprintf(msg, sizeof(msg), "Byte 0x%02X @ addr %d", value, addr);
-        respDoc["message"] = msg;
-    }
-
-    // Test singoli byte da 0 a 15
-    else if (strcmp(test, "b0") == 0) { tm1621_write_byte(0, 0xFF); respDoc["message"] = "0xFF @ addr 0"; }
-    else if (strcmp(test, "b1") == 0) { tm1621_write_byte(1, 0xFF); respDoc["message"] = "0xFF @ addr 1"; }
-    else if (strcmp(test, "b2") == 0) { tm1621_write_byte(2, 0xFF); respDoc["message"] = "0xFF @ addr 2"; }
-    else if (strcmp(test, "b3") == 0) { tm1621_write_byte(3, 0xFF); respDoc["message"] = "0xFF @ addr 3"; }
-    else if (strcmp(test, "b4") == 0) { tm1621_write_byte(4, 0xFF); respDoc["message"] = "0xFF @ addr 4"; }
-    else if (strcmp(test, "b5") == 0) { tm1621_write_byte(5, 0xFF); respDoc["message"] = "0xFF @ addr 5"; }
-    else if (strcmp(test, "b6") == 0) { tm1621_write_byte(6, 0xFF); respDoc["message"] = "0xFF @ addr 6"; }
-    else if (strcmp(test, "b7") == 0) { tm1621_write_byte(7, 0xFF); respDoc["message"] = "0xFF @ addr 7"; }
-    else if (strcmp(test, "b8") == 0) { tm1621_write_byte(8, 0xFF); respDoc["message"] = "0xFF @ addr 8"; }
-    else if (strcmp(test, "b9") == 0) { tm1621_write_byte(9, 0xFF); respDoc["message"] = "0xFF @ addr 9"; }
-    else if (strcmp(test, "b10") == 0) { tm1621_write_byte(10, 0xFF); respDoc["message"] = "0xFF @ addr 10"; }
-    else if (strcmp(test, "b11") == 0) { tm1621_write_byte(11, 0xFF); respDoc["message"] = "0xFF @ addr 11"; }
-    else if (strcmp(test, "b12") == 0) { tm1621_write_byte(12, 0xFF); respDoc["message"] = "0xFF @ addr 12"; }
-    else if (strcmp(test, "b13") == 0) { tm1621_write_byte(13, 0xFF); respDoc["message"] = "0xFF @ addr 13"; }
-    else if (strcmp(test, "b14") == 0) { tm1621_write_byte(14, 0xFF); respDoc["message"] = "0xFF @ addr 14"; }
-    else if (strcmp(test, "b15") == 0) { tm1621_write_byte(15, 0xFF); respDoc["message"] = "0xFF @ addr 15"; }
-
-    // Clear singolo byte
-    else if (strcmp(test, "clear_all") == 0) {
-        tm1621_fill_at(0x00, 0, 32);
-        respDoc["message"] = "Cleared all RAM";
-    }
-
-    // === SEND COMMAND ===
-    else if (strcmp(test, "cmd") == 0) {
-        uint8_t cmd = doc["cmd"] | 0x03;
-        tm1621_send_command(cmd);
-        char msg[48];
-        snprintf(msg, sizeof(msg), "Comando inviato: 0x%02X", cmd);
-        respDoc["message"] = msg;
-    }
-
-    // === CONFIGURATION ===
-    else if (strcmp(test, "set_pulse") == 0) {
-        uint8_t us = doc["value"] | 5;
-        tm1621_set_pulse_width(us);
-        char msg[48];
-        snprintf(msg, sizeof(msg), "Pulse width: %d us", us);
-        respDoc["message"] = msg;
-    }
-    else if (strcmp(test, "set_bias") == 0) {
-        uint8_t bias = doc["value"] | 0x28;
-        tm1621_set_bias(bias);
-        char msg[48];
-        snprintf(msg, sizeof(msg), "BIAS: 0x%02X", bias);
-        respDoc["message"] = msg;
-    }
-
-    // === PIN TEST ===
-    else if (strcmp(test, "test_pins") == 0) {
-        tm1621_test_pins_sequence();
-        respDoc["message"] = "Test sequenza pin completato (vedi Serial)";
-    }
-    else if (strcmp(test, "set_pin") == 0) {
-        uint8_t pin = doc["pin"] | PIN_LCD_DATA;
-        bool state = doc["state"] | false;
-        tm1621_test_pin(pin, state);
-        char msg[48];
-        snprintf(msg, sizeof(msg), "GPIO%d = %s", pin, state ? "HIGH" : "LOW");
-        respDoc["message"] = msg;
-    }
-
-    // === GET STATUS ===
-    else if (strcmp(test, "get_status") == 0) {
-        respDoc["initialized"] = tm1621_is_initialized();
-        respDoc["lcdOn"] = tm1621_is_lcd_on();
-        respDoc["testMode"] = tm1621_is_test_mode();
-        respDoc["bias"] = tm1621_get_bias();
-        respDoc["pulse"] = tm1621_get_pulse_width();
-        respDoc["writes"] = tm1621_get_write_count();
-        respDoc["cmds"] = tm1621_get_cmd_count();
-        respDoc["ram"] = tm1621_get_ram_hex();
-        respDoc["message"] = "Stato TM1621";
     }
 
     // === PRINT STATUS TO SERIAL ===
@@ -893,22 +835,8 @@ void handleDebugTestDisplay() {
         respDoc["message"] = "Status stampato su Serial";
     }
 
-    // === LEGACY COMPATIBILITY ===
-    else if (strcmp(test, "on") == 0) {
-        tm1621_lcd_on_cmd();
-        respDoc["message"] = "LCD ON";
-    }
-    else if (strcmp(test, "off") == 0) {
-        tm1621_lcd_off_cmd();
-        respDoc["message"] = "LCD OFF";
-    }
-    else if (strcmp(test, "clear") == 0) {
-        tm1621_fill_ram(0x00);
-        respDoc["message"] = "RAM cleared";
-    }
-
     else {
-        sendError(400, "Test non valido. Usa: lcd_on, lcd_off, reinit, all_on, all_off, pattern, write_nibble, write_multi, fill, cmd, set_pulse, set_bias, test_pins, set_pin, get_status");
+        sendError(400, "Comandi: lcd_on, lcd_off, reinit, all_on, all_off, write_row, write_both, write_float, write_floats, write_raw, set_unit, print_status");
         return;
     }
 
@@ -917,9 +845,6 @@ void handleDebugTestDisplay() {
     server.send(200, "application/json", response);
     Serial.printf("[DEBUG] Display test: %s\n", test);
 }
-
-// handleSetCmdMode rimosso - il driver v4.0 segue il datasheet ufficiale
-// e non ha piu' modalita' alternative
 
 void handleSetTestMode() {
     addCorsHeaders();
