@@ -493,11 +493,17 @@ bool hasBellsToday() {
 void updateDisplayIndicators() {
   bool clockSync  = isNtpSynced();
   bool apMode     = (getWiFiState() == WIFI_STATE_AP_MODE);
-  bool wifiConn   = (WiFi.status() == WL_CONNECTED);
-  bool ringing    = systemStatus.isRinging;
   bool alarms     = hasBellsToday();
 
-  tm1621_set_indicators(clockSync, apMode, alarms, wifiConn, ringing);
+  // kWh/W: lampeggia se c'e' un client web connesso (SSE)
+  bool clientConnected = (countSSEClients() > 0);
+  bool blink = ((millis() / 500) % 2 == 0);  // Toggle ogni 500ms
+  bool wifiInd = clientConnected && blink;
+
+  // %RH: lampeggia durante il ringing
+  bool ringing = systemStatus.isRinging && blink;
+
+  tm1621_set_indicators(clockSync, apMode, alarms, wifiInd, ringing);
 }
 
 // ============================================

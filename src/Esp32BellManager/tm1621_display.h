@@ -561,7 +561,6 @@ void printDisplayStatus() { tm1621_print_status(); }
 
 void clearDisplay() {
     if (Tm1621.test_mode) return;
-    tm1621_clear_all_units();
     tm1621_write_strings("    ", "    ");
 }
 
