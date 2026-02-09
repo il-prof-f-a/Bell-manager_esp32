@@ -590,7 +590,7 @@ void handleDebugStatus() {
         "\"ntpSynced\":%s,\"timeSet\":%s,\"currentTime\":\"%s\",\"currentDate\":\"%s\","
         // Bells
         "\"bellCount\":%d,\"globalEnabled\":%s,\"isRinging\":%s,"
-        // Display TM1621 v8.0 (ESPEasy P148)
+        // Display TM1621 v9.0 (ESPHome exact)
         "\"dispInit\":%s,\"dispOn\":%s,\"dispRow0\":\"%s\",\"dispRow1\":\"%s\","
         "\"dispUnits\":\"%s\",\"dispWrites\":%u,\"dispCmds\":%u,"
         "\"dispBuffer\":\"%s\",\"testMode\":%s,"
@@ -625,7 +625,7 @@ void handleDebugStatus() {
         bellCount,
         settings.globalEnabled ? "true" : "false",
         systemStatus.isRinging ? "true" : "false",
-        // Display TM1621 v8.0 (ESPEasy P148)
+        // Display TM1621 v9.0 (ESPHome exact)
         tm1621_is_initialized() ? "true" : "false",
         tm1621_is_lcd_on() ? "true" : "false",
         tm1621_get_row(0).c_str(),
@@ -699,7 +699,7 @@ void handleDebugTestDisplay() {
     respDoc["success"] = true;
 
     // ============================================
-    // TM1621 Driver v8.0 (ESPEasy P148)
+    // TM1621 Driver v9.0 (ESPHome exact)
     // Display: 2 righe x 4 digit, buffer 8 byte @ 0x10
     // ============================================
 

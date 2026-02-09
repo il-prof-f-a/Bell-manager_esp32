@@ -5,9 +5,12 @@
 #include "config.h"
 
 // ============================================
-// Driver Display LCD TM1621 v8.0
-// Basato su ESPEasy P148_data_struct.cpp
-// https://github.com/letscontrolit/ESPEasy
+// Driver Display LCD TM1621 v9.0
+// Copia ESATTA dal codice ESPHome tm1621.cpp
+// https://github.com/esphome/esphome/blob/dev/esphome/components/tm1621/tm1621.cpp
+//
+// + Font caratteri A-Z da ESPEasy P148
+// https://github.com/letscontrolit/ESPEasy/blob/mega/src/src/PluginStructs/P148_data_struct.cpp
 //
 // POWR316D: DA=GPIO14, CS=GPIO25, RD=GPIO26, WR=GPIO27
 // ============================================
@@ -22,20 +25,21 @@
 #define TM1621_BIAS       0x29   // 1/3 bias 4 commons
 #define TM1621_IRQ_DIS    0x80
 
-#define TM1621_PULSE_WIDTH 10  // microseconds
+#define TM1621_PULSE_WIDTH 10   // microseconds (ESPEasy default, testato OK)
 
-// Comandi init (ESPEasy P148 exact)
+// Comandi init (identici ESPHome/Tasmota/ESPEasy)
 static const uint8_t tm1621_commands[] = {
     TM1621_SYS_EN, TM1621_LCD_ON, TM1621_BIAS,
     TM1621_TIMER_DIS, TM1621_WDT_DIS, TM1621_TONE_OFF, TM1621_IRQ_DIS
 };
 
 // =============================================
-// FONT TABLES - ESPEasy P148 ESATTO
-// Due tabelle separate pre-calcolate per Row 1 e Row 2
+// FONT TABLES
+// Digit table: IDENTICA a ESPHome TM1621_DIGIT_ROW
+// Char table:  Da ESPEasy P148 (supporto A-Z)
 // =============================================
 
-// HEX bit values per segment
+// Segment layout:
 // Row 1              Row 2
 //        1                  80
 //      -----              -----
@@ -49,13 +53,18 @@ static const uint8_t tm1621_commands[] = {
 //      -----              -----
 //        8                  10
 
-//                                                     0     1     2     3     4     5     6     7     8     9     -
-static const uint8_t tm1621_digit_row[2][11] = { { 0x5F, 0x50, 0x3D, 0x79, 0x72, 0x6B, 0x6F, 0x51, 0x7F, 0x7B, 0x20 },
-                                                 { 0xF5, 0x05, 0xB6, 0x97, 0x47, 0xD3, 0xF3, 0x85, 0xF7, 0xD7, 0x02 } };
+// Font TM1621 - IDENTICHE a ESPEasy P148
+//                                            0     1     2     3     4     5     6     7     8     9     -
+static const uint8_t TM1621_DIGIT_ROW[2][11] = {
+    { 0x5F, 0x50, 0x3D, 0x79, 0x72, 0x6B, 0x6F, 0x51, 0x7F, 0x7B, 0x20 },
+    { 0xF5, 0x05, 0xB6, 0x97, 0x47, 0xD3, 0xF3, 0x85, 0xF7, 0xD7, 0x02 }
+};
 
-//                                                     'A'   'b'   'C'   'd'   'E'   'F'   'G'   'H'   'i'   'J'   'K'   'L'   'M'   'n'   'o'   'P'   'q'   'r'   'S'   't'   'U'   'v'   'W'   'X'   'Y'   'Z'   '?'
-static const uint8_t tm1621_char_row[2][27] = { { 0x77, 0x6E, 0x0F, 0x7C, 0x2F, 0x27, 0x4f, 0x76, 0x40, 0x5C, 0x00, 0x0E, 0x00, 0x64, 0x6C, 0x37, 0x73, 0x24, 0x6B, 0x2E, 0x5E, 0x4C, 0x00, 0x00, 0x7A, 0x00, 0x35 },
-                                                { 0xE7, 0x73, 0xF0, 0x37, 0xF2, 0xE2, 0xF1, 0x67, 0x01, 0x35, 0x00, 0x70, 0x00, 0x23, 0x33, 0xE6, 0xC7, 0x22, 0xD3, 0x72, 0x75, 0x31, 0x00, 0x00, 0x57, 0x00, 0xA6 } };
+//                                                 'A'   'b'   'C'   'd'   'E'   'F'   'G'   'H'   'i'   'J'   'K'   'L'   'M'   'n'   'o'   'P'   'q'   'r'   'S'   't'   'U'   'v'   'W'   'X'   'Y'   'Z'   '?'
+static const uint8_t TM1621_CHAR_ROW[2][27] = {
+    { 0x77, 0x6E, 0x0F, 0x7C, 0x2F, 0x27, 0x4f, 0x76, 0x40, 0x5C, 0x00, 0x0E, 0x00, 0x64, 0x6C, 0x37, 0x73, 0x24, 0x6B, 0x2E, 0x5E, 0x4C, 0x00, 0x00, 0x7A, 0x00, 0x35 },
+    { 0xE7, 0x73, 0xF0, 0x37, 0xF2, 0xE2, 0xF1, 0x67, 0x01, 0x35, 0x00, 0x70, 0x00, 0x23, 0x33, 0xE6, 0xC7, 0x22, 0xD3, 0x72, 0x75, 0x31, 0x00, 0x00, 0x57, 0x00, 0xA6 }
+};
 
 // =============================================
 // STRUCT STATO
@@ -77,42 +86,34 @@ static struct {
 } Tm1621 = {};
 
 // =============================================
-// TM1621GetFontCharacter - ESPEasy P148 ESATTO
+// Lookup carattere - COPIA ESATTA ESPEasy P148
+// Usa isdigit() + math diretto, NO TM1621GetCommandCode
 // =============================================
-static uint8_t TM1621GetFontCharacter(char character, bool firstrow) {
+static uint8_t TM1621GetFontCharacter(char character, uint32_t row) {
     const char c = tolower(character);
-    const uint32_t row = firstrow ? 0 : 1;
 
     if (isdigit(c) || (c == '-')) {
         if (c == '-') {
-            return tm1621_digit_row[row][10];
+            return TM1621_DIGIT_ROW[row][10];
         } else {
-            return tm1621_digit_row[row][c - '0'];
+            return TM1621_DIGIT_ROW[row][c - '0'];
         }
     }
 
-    if (c == '?') { return tm1621_char_row[row][26]; }
+    if (c == '?') { return TM1621_CHAR_ROW[row][26]; }
 
-    if ('a' <= c && c <= 'z') {
-        return tm1621_char_row[row][c - 'a'];
+    if (('a' <= c) && (c <= 'z')) {
+        return TM1621_CHAR_ROW[row][c - 'a'];
     }
 
-    // Spazio o carattere sconosciuto
-    return 0u;
+    return 0;  // space
 }
 
 // =============================================
-// bufferIndex - ESPEasy P148 ESATTO
-// =============================================
-static uint32_t bufferIndex(bool firstrow, uint32_t col) {
-    return firstrow ? col : 7 - col;
-}
-
-// =============================================
-// FUNZIONI BASSO LIVELLO - ESPEasy P148 ESATTO
+// FUNZIONI BASSO LIVELLO
+// COPIA ESATTA da ESPEasy P148 (testato e funzionante)
 // =============================================
 
-// ESPEasy: TM1621WriteBit
 static void TM1621WriteBit(bool value) {
     digitalWrite(PIN_LCD_WR, 0);
     digitalWrite(PIN_LCD_DATA, value ? 1 : 0);
@@ -121,25 +122,20 @@ static void TM1621WriteBit(bool value) {
     delayMicroseconds(TM1621_PULSE_WIDTH);
 }
 
-// ESPEasy: TM1621StartSequence
 static void TM1621StartSequence(void) {
     digitalWrite(PIN_LCD_CS, 0);
     delayMicroseconds(TM1621_PULSE_WIDTH / 2);
 }
 
-// ESPEasy: TM1621StopSequence
 static void TM1621StopSequence(void) {
     digitalWrite(PIN_LCD_CS, 1);
     delayMicroseconds(TM1621_PULSE_WIDTH / 2);
     digitalWrite(PIN_LCD_DATA, 1);
 }
 
-// ESPEasy: TM1621SendCmnd
 static void TM1621SendCmnd(uint16_t command) {
-    uint16_t full_command = (0x0400 | command) << 5; // 0b100cccccccc00000
-
+    uint16_t full_command = (0x0400 | command) << 5;
     TM1621StartSequence();
-
     for (uint32_t i = 0; i < 12; i++) {
         TM1621WriteBit(full_command & 0x8000);
         full_command <<= 1;
@@ -148,46 +144,47 @@ static void TM1621SendCmnd(uint16_t command) {
     Tm1621.cmd_count++;
 }
 
-// ESPEasy: TM1621SendAddress
 static void TM1621SendAddress(uint16_t address) {
-    uint16_t full_address = (address | 0x0140) << 7; // 0b101aaaaaa0000000
-
+    uint16_t full_address = (address | 0x0140) << 7;
     TM1621StartSequence();
-
     for (uint32_t i = 0; i < 9; i++) {
         TM1621WriteBit(full_address & 0x8000);
         full_address <<= 1;
     }
+    // NON chiama stop - i dati seguono subito
 }
 
-// ESPEasy: TM1621SendCommon (LSB first)
 static void TM1621SendCommon(uint8_t common) {
     for (uint32_t i = 0; i < 8; i++) {
         TM1621WriteBit(common & 1);
         common >>= 1;
     }
+    // NON chiama stop - altri dati possono seguire
 }
 
-// ESPEasy: TM1621WritePixelBuffer
 static void TM1621WritePixelBuffer(const uint8_t *buf, size_t size, uint16_t address) {
     TM1621SendAddress(address);
-
     for (uint32_t i = 0; i < size; i++) {
         TM1621SendCommon(buf[i]);
     }
     TM1621StopSequence();
 }
 
+static uint32_t TM1621BufferIndex(bool firstrow, uint32_t col) {
+    return firstrow ? col : 7 - col;
+}
+
 // =============================================
-// TM1621SendRows - ESPEasy P148 ESATTO
+// TM1621SendRows - COPIA ESATTA da ESPEasy P148
+// Approccio float-based (testato e funzionante)
 // =============================================
 
-// Helper: prova a parsare una stringa come float
-static bool tm1621_validFloat(const char* str, float& value) {
-    if (!str || str[0] == '\0') return false;
-    char* endptr;
-    value = strtof(str, &endptr);
-    return endptr != str && (*endptr == '\0' || *endptr == ' ');
+static bool TM1621ValidFloat(const char* str, float &value) {
+    char *endptr;
+    float v = strtof(str, &endptr);
+    if (endptr == str || *endptr != '\0') return false;
+    value = v;
+    return true;
 }
 
 static void TM1621SendRows(void) {
@@ -197,8 +194,8 @@ static void TM1621SendRows(void) {
         const bool firstrow = (0 == j);
         float value = 0.0f;
 
-        if (tm1621_validFloat(Tm1621.row[j], value)) {
-            // Numero: gestisci come ESPEasy P148
+        if (TM1621ValidFloat(Tm1621.row[j], value)) {
+            // Numero valido - approccio ESPEasy: float parsing
             bool hadDot = false;
             for (size_t i = 0; i < 4 && !hadDot; ++i) {
                 if (Tm1621.row[j][i] == '.') { hadDot = true; }
@@ -217,36 +214,34 @@ static void TM1621SendRows(void) {
                 }
             }
 
-            // Converti a intero e poi a stringa
-            int intValue = (int)value;
-            char value_str[12];
-            snprintf(value_str, sizeof(value_str), "%d", intValue);
-            size_t slen = strlen(value_str);
+            String value_str(static_cast<int>(value));
+            size_t slen = value_str.length();
             size_t pos = 0;
 
-            for (size_t i = (4 > slen ? 4 - slen : 0); i < 4 && pos < slen; ++i, ++pos) {
+            for (size_t i = 4 - slen; i < 4 && pos < slen; ++i, ++pos) {
                 row[i] = value_str[pos];
             }
 
             for (uint32_t i = 0; i < 4; i++) {
-                buffer[bufferIndex(firstrow, i)] = TM1621GetFontCharacter(row[i], firstrow);
+                buffer[TM1621BufferIndex(firstrow, i)] = TM1621GetFontCharacter(row[i], j);
             }
 
             if (dot) {
                 if (firstrow) {
-                    buffer[2] |= 0x80; // Row 1 decimal point
+                    buffer[2] |= 0x80;  // Row 1 decimal point
                 } else {
-                    buffer[5] |= 0x08; // Row 2 decimal point
+                    buffer[5] |= 0x08;  // Row 2 decimal point
                 }
             }
         } else {
-            // Testo: renderizza carattere per carattere
+            // NON e' un numero (es. "----", "bELL") - lettura diretta char per char
             for (uint32_t i = 0; i < 4; i++) {
-                buffer[bufferIndex(firstrow, i)] = TM1621GetFontCharacter(Tm1621.row[j][i], firstrow);
+                buffer[TM1621BufferIndex(firstrow, i)] = TM1621GetFontCharacter(Tm1621.row[j][i], j);
             }
         }
     }
 
+    // Unit symbols
     if (Tm1621.fahrenheit) { buffer[1] |= 0x80; }
     if (Tm1621.celsius)    { buffer[3] |= 0x80; }
     if (Tm1621.kwh)        { buffer[4] |= 0x08; }
@@ -256,32 +251,36 @@ static void TM1621SendRows(void) {
     // Salva mirror per debug
     memcpy(Tm1621.last_buffer, buffer, 8);
 
-    TM1621WritePixelBuffer(buffer, 8, 0x10); // Sonoff uses upper 16 segments
+    // Invia al display
+    TM1621WritePixelBuffer(buffer, 8, 0x10);
 
     Tm1621.write_count++;
 }
 
 // =============================================
-// TM1621Init - ESPEasy P148 ESATTO
+// TM1621Init - COPIA ESATTA da ESPHome setup()
 // =============================================
 
 void tm1621_init(void) {
-    Serial.println("[TM1621] ========== INIT v8.0 (ESPEasy P148) ==========");
+    Serial.println("[TM1621] ========== INIT v10.0 (ESPEasy P148) ==========");
     Serial.printf("[TM1621] Pins: DA=%d, CS=%d, RD=%d, WR=%d\n",
                   PIN_LCD_DATA, PIN_LCD_CS, PIN_LCD_RD, PIN_LCD_WR);
     Serial.printf("[TM1621] Pulse: %d us, BIAS: 0x%02X\n", TM1621_PULSE_WIDTH, TM1621_BIAS);
 
-    // Pin setup
-    pinMode(PIN_LCD_DATA, OUTPUT);
-    digitalWrite(PIN_LCD_DATA, 1);
+    // Pin setup - ESPHome: setup() prima di tutto
     pinMode(PIN_LCD_CS, OUTPUT);
     digitalWrite(PIN_LCD_CS, 1);
+    pinMode(PIN_LCD_DATA, OUTPUT);
+    digitalWrite(PIN_LCD_DATA, 1);
     pinMode(PIN_LCD_RD, OUTPUT);
     digitalWrite(PIN_LCD_RD, 1);
     pinMode(PIN_LCD_WR, OUTPUT);
     digitalWrite(PIN_LCD_WR, 1);
 
-    // Init sequence (ESPEasy P148 TM1621Init esatto)
+    // Attendi che il TM1621 sia pronto (power stabilization)
+    delay(200);
+
+    // Init pulse sequence - IDENTICA a ESPEasy P148 (testata OK)
     digitalWrite(PIN_LCD_CS, 0);
     delayMicroseconds(80);
     digitalWrite(PIN_LCD_RD, 0);
@@ -292,18 +291,19 @@ void tm1621_init(void) {
     delayMicroseconds(TM1621_PULSE_WIDTH);
     digitalWrite(PIN_LCD_DATA, 1);
 
-    constexpr uint32_t nr_commands = sizeof(tm1621_commands) / sizeof(tm1621_commands[0]);
-    for (uint32_t command = 0; command < nr_commands; command++) {
+    // Invia comandi init
+    for (uint32_t command = 0; command < sizeof(tm1621_commands); command++) {
         TM1621SendCmnd(tm1621_commands[command]);
     }
 
-    // Clear entire display buffer
+    // Clear entire display buffer (address 0x00, 16 nibbles)
     TM1621SendAddress(0x00);
     for (uint32_t segment = 0; segment < 16; segment++) {
         TM1621SendCommon(0);
     }
     TM1621StopSequence();
 
+    // Mostra "----" su entrambe le righe
     snprintf(Tm1621.row[0], sizeof(Tm1621.row[0]), "----");
     snprintf(Tm1621.row[1], sizeof(Tm1621.row[1]), "----");
     TM1621SendRows();
@@ -323,7 +323,7 @@ void tm1621_init(void) {
 void tm1621_reinit(void) {
     Tm1621.initialized = false;
     Tm1621.lcd_on = false;
-    delay(100);
+    delay(500);
     tm1621_init();
 }
 
@@ -358,7 +358,7 @@ void tm1621_write_floats(float value1, float value2) {
     tm1621_write_strings(buf1, buf2);
 }
 
-// Write raw 8 bytes
+// Write raw 8 bytes direttamente al buffer
 void tm1621_write_raw(const uint8_t* data, uint8_t len) {
     if (len > 8) len = 8;
     memcpy(Tm1621.last_buffer, data, len);
@@ -372,7 +372,8 @@ void tm1621_write_raw(uint64_t rawdata) {
 
     for (uint32_t j = 0; j < 2; j++) {
         for (uint32_t i = 0; i < 4; i++) {
-            buffer[bufferIndex((0 == j), i)] = ((rawdata >> 56) & 0xFF);
+            uint32_t bidx = TM1621BufferIndex(0 == j, i);
+            buffer[bidx] = ((rawdata >> 56) & 0xFF);
             rawdata <<= 8;
         }
     }
@@ -428,6 +429,16 @@ void tm1621_clear_all_units() {
     Tm1621.humidity = false;
     Tm1621.voltage = false;
     Tm1621.kwh = false;
+}
+
+// Imposta tutti gli indicatori di stato in una volta
+// °C=clock sync, °F=AP mode, V/A=allarmi oggi, kWh/W=wifi, %RH=ringing
+void tm1621_set_indicators(bool clockSync, bool apMode, bool alarmsToday, bool wifiConn, bool ringing) {
+    Tm1621.celsius    = clockSync;    // °C  = NTP sincronizzato
+    Tm1621.fahrenheit = apMode;       // °F  = Modalita' AP
+    Tm1621.voltage    = alarmsToday;  // V/A = Campanelle programmate oggi
+    Tm1621.kwh        = wifiConn;     // kWh/W = WiFi connesso
+    Tm1621.humidity   = ringing;      // %RH = Sta suonando
 }
 
 // =============================================
@@ -510,7 +521,7 @@ String tm1621_get_units_str() {
 
 void tm1621_print_status() {
     Serial.println("[TM1621] === STATUS ===");
-    Serial.printf("  Driver: ESPEasy P148 v8.0\n");
+    Serial.printf("  Driver: ESPEasy P148 v10.0\n");
     Serial.printf("  Initialized: %s\n", Tm1621.initialized ? "YES" : "NO");
     Serial.printf("  LCD ON: %s\n", Tm1621.lcd_on ? "YES" : "NO");
     Serial.printf("  Test mode: %s\n", Tm1621.test_mode ? "YES" : "NO");
@@ -526,7 +537,6 @@ void tm1621_print_status() {
     Serial.printf("  Writes: %lu, Cmds: %lu\n", Tm1621.write_count, Tm1621.cmd_count);
 }
 
-// Forza re-invio delle righe correnti
 void tm1621_refresh() {
     TM1621SendRows();
 }
@@ -545,7 +555,7 @@ uint32_t getDisplayUpdateCount() { return Tm1621.write_count; }
 String getDisplayContent() { return String(Tm1621.row[0]) + "|" + String(Tm1621.row[1]); }
 String getDisplayBufferHex() { return tm1621_get_buffer_hex(); }
 String getDisplayParams() {
-    return String("ESPEasy P148 v8, BIAS=0x29, pulse=10us");
+    return String("ESPEasy P148 v10, BIAS=0x29, pulse=10us");
 }
 void printDisplayStatus() { tm1621_print_status(); }
 
@@ -562,7 +572,6 @@ void displayAllOn() {
 
 void displayTime(uint8_t hour, uint8_t minute) {
     if (Tm1621.test_mode) return;
-    tm1621_clear_all_units();
     char buf1[12], buf2[12];
     snprintf(buf1, sizeof(buf1), "%2d", hour);
     snprintf(buf2, sizeof(buf2), "%2d", minute);
@@ -571,19 +580,16 @@ void displayTime(uint8_t hour, uint8_t minute) {
 
 void displayLoading() {
     if (Tm1621.test_mode) return;
-    tm1621_clear_all_units();
     tm1621_write_strings("----", "----");
 }
 
 void displayBell() {
     if (Tm1621.test_mode) return;
-    tm1621_clear_all_units();
     tm1621_write_strings("bELL", "    ");
 }
 
 void displayConnecting() {
     if (Tm1621.test_mode) return;
-    tm1621_clear_all_units();
     tm1621_write_strings("Conn", "    ");
 }
 

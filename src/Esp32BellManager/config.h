@@ -83,7 +83,7 @@
 #define STORAGE_KEY_DST_OFFSET  "dst_offset"
 
 // --- Versione Firmware ---
-#define FIRMWARE_VERSION        "2.2.0"
+#define FIRMWARE_VERSION        "2.3.0"
 
 // --- Stati WiFi ---
 enum WiFiState {

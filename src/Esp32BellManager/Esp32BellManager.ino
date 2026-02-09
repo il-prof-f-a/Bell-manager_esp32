@@ -26,6 +26,7 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ArduinoOTA.h>
 #include <ArduinoJson.h>
 
 // Header del progetto
@@ -130,6 +131,46 @@ void handleNotFound() {
 }
 
 // ============================================
+// Setup OTA (Over-The-Air update)
+// ============================================
+
+void setupOTA() {
+  ArduinoOTA.setHostname("Bell-Manager");
+  ArduinoOTA.setPassword("bellmanager");  // Stessa password dell'AP
+
+  ArduinoOTA.onStart([]() {
+    String type = (ArduinoOTA.getCommand() == U_FLASH) ? "firmware" : "filesystem";
+    Serial.printf("[OTA] Inizio aggiornamento %s...\n", type.c_str());
+    // Spegni relay per sicurezza durante update
+    setRelay(false);
+    // Feedback visivo: LED WiFi lampeggia veloce
+    setWifiLedMode(3);
+  });
+
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\n[OTA] Aggiornamento completato! Riavvio...");
+    setWifiLedRaw(true);
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("[OTA] Progresso: %u%%\r", (progress / (total / 100)));
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("[OTA] Errore[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth fallita");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin fallito");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connessione fallita");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Ricezione fallita");
+    else if (error == OTA_END_ERROR) Serial.println("End fallito");
+    setWifiLedMode(0);
+  });
+
+  ArduinoOTA.begin();
+  Serial.println("[OTA] OTA attivo - hostname: Bell-Manager");
+}
+
+// ============================================
 // Setup Server Web
 // ============================================
 
@@ -161,6 +202,7 @@ void webServerTask(void * parameter) {
 
   for (;;) {
     server.handleClient();
+    ArduinoOTA.handle();
 
     // Invia aggiornamenti SSE (pagina principale - ogni 1s)
     updateSSEClients();
@@ -390,6 +432,10 @@ void setup() {
   // Attendi inizializzazione WiFi
   delay(500);
 
+  // Setup OTA
+  Serial.println("[INIT] Setup OTA...");
+  setupOTA();
+
   // Setup Web Server
   Serial.println("[INIT] Setup WebServer...");
   setupWebServer();
@@ -422,6 +468,39 @@ void setup() {
 }
 
 // ============================================
+// Controlla se ci sono campanelle programmate oggi
+// ============================================
+
+bool hasBellsToday() {
+  if (!isNtpSynced() || !settings.globalEnabled) return false;
+
+  CurrentTime t = getTime();
+  // t.weekday: 0=Lun, 6=Dom
+
+  for (uint8_t i = 0; i < bellCount; i++) {
+    if (bells[i].enabled && isDayEnabled(bells[i].days, t.weekday)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ============================================
+// Aggiorna indicatori display
+// °C=clock, °F=AP, V/A=allarmi, kWh/W=wifi, %RH=ring
+// ============================================
+
+void updateDisplayIndicators() {
+  bool clockSync  = isNtpSynced();
+  bool apMode     = (getWiFiState() == WIFI_STATE_AP_MODE);
+  bool wifiConn   = (WiFi.status() == WL_CONNECTED);
+  bool ringing    = systemStatus.isRinging;
+  bool alarms     = hasBellsToday();
+
+  tm1621_set_indicators(clockSync, apMode, alarms, wifiConn, ringing);
+}
+
+// ============================================
 // Aggiorna Display LCD
 // ============================================
 
@@ -431,6 +510,9 @@ void updateDisplayTime() {
   // Aggiorna ogni secondo
   if (now - lastDisplayUpdate < 1000) return;
   lastDisplayUpdate = now;
+
+  // Aggiorna indicatori di stato
+  updateDisplayIndicators();
 
   // Se campanella in corso, mostra "bELL"
   if (systemStatus.isRinging) {

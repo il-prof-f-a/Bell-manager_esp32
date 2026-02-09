@@ -4,7 +4,7 @@
 #include <pgmspace.h>
 
 // ============================================
-// Debug Page v5.0 - Per TM1621 Driver v8.0 (ESPEasy P148)
+// Debug Page v6.0 - Per TM1621 Driver v8.0 (ESPEasy P148)
 // ============================================
 
 const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
@@ -163,7 +163,7 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
   </style>
 </head>
 <body>
-  <h1>// TM1621 Debug Console v5.0 (ESPEasy P148)</h1>
+  <h1>// TM1621 Debug Console v6.0 (ESPEasy P148)</h1>
   <div id="lastUpdate" style="color:#888;font-size:11px;margin-bottom:10px;">Last update: --</div>
 
   <div class="grid">
@@ -191,7 +191,7 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
       <h2>TM1621 Status</h2>
       <div class="status-row">
         <span class="status-label">Driver</span>
-        <span class="status-value">ESPEasy P148 v8.0</span>
+        <span class="status-value">ESPHome exact v9.0</span>
       </div>
       <div class="status-row">
         <span class="status-label">Initialized</span>
@@ -740,7 +740,7 @@ const char DEBUG_PAGE[] PROGMEM = R"rawliteral(
     });
 
     // Init
-    log('TM1621 Debug Console v5.0 (ESPEasy P148)');
+    log('TM1621 Debug Console v6.0 (ESPEasy P148)');
     loadStatus();
     setInterval(loadStatus, 5000);
   </script>

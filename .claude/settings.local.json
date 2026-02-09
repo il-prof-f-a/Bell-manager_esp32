@@ -14,7 +14,14 @@
       "WebFetch(domain:api-docs.esphome.io)",
       "WebFetch(domain:www.elektroda.com)",
       "Bash(powershell:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "WebFetch(domain:www.datasheetbank.com)",
+      "WebFetch(domain:datasheet4u.com)",
+      "WebFetch(domain:www.lcsc.com)",
+      "Bash(curl:*)",
+      "Bash(del \"S:\\\\Progetti su github\\\\Bell-manager_esp32\\\\tmp_P148.cpp\" \"S:\\\\Progetti su github\\\\Bell-manager_esp32\\\\tmp_P148.h\")",
+      "WebFetch(domain:community.home-assistant.io)",
+      "WebFetch(domain:tasmota.github.io)"
     ]
   }
 }
