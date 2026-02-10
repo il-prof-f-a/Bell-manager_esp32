@@ -70,7 +70,7 @@
 // --- Durata Campanella ---
 #define MIN_BELL_DURATION       1       // Durata minima (secondi)
 #define MAX_BELL_DURATION       60      // Durata massima (secondi)
-#define DEFAULT_BELL_DURATION   3       // Durata default (secondi)
+#define DEFAULT_BELL_DURATION   10       // Durata default (secondi)
 
 // --- Storage ---
 #define STORAGE_NAMESPACE       "bellmgr"
