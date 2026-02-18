@@ -44,6 +44,7 @@
 #include "debug_page.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include "icona_BellManager.h"
 
 // ============================================
 // Variabili Globali
@@ -123,12 +124,79 @@ void handleDebug() {
   server.send_P(200, "text/html", DEBUG_PAGE);
 }
 
+// handle per icona
+void handleIcon() {
+  server.send_P(
+    200,
+    "image/png",
+    (const char*)icona_png,
+    icona_png_len
+  );
+}
+
+
 void handleNotFound() {
   if (handleBellsWithId()) {
     return;
   }
   server.send(404, "text/plain", "404 Not Found");
 }
+// manifest
+void handleManifest() {
+
+  String manifest = R"====(
+{
+  "name": "Bell-Manager",
+  "short_name": "Bell",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0180ff",
+  "icons": [
+    {
+      "src": "/icona.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icona.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+)====";
+
+  server.send(200, "application/manifest+json", manifest);
+}
+
+// service worker
+void handleSW() {
+
+String sw = R"====(
+const CACHE="bell-cache-v1";
+
+self.addEventListener("install",e=>{
+ e.waitUntil(
+  caches.open(CACHE).then(c=>c.addAll([
+   "/",
+   "/icona.png",
+   "/manifest.webmanifest"
+  ]))
+ );
+});
+
+self.addEventListener("fetch",e=>{
+ e.respondWith(
+  caches.match(e.request).then(r=>r||fetch(e.request))
+ );
+});
+)====";
+
+server.send(200,"application/javascript",sw);
+}
+
+
 
 // ============================================
 // Setup OTA (Over-The-Air update)
@@ -180,6 +248,9 @@ void setupWebServer() {
   // Pagine statiche
   server.on("/", HTTP_GET, handleRoot);
   server.on("/debug", HTTP_GET, handleDebug);
+  server.on("/icona.png", HTTP_GET, handleIcon);
+  server.on("/manifest.webmanifest", handleManifest);
+  server.on("/sw.js", handleSW);
 
   // API routes
   setupApiRoutes();

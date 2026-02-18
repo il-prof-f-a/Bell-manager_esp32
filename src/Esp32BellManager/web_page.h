@@ -15,6 +15,10 @@ const char WEB_PAGE[] PROGMEM = R"rawliteral(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bell-Manager</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0180ff">
+  <link rel="icon" href="/icona.png">
+  
   <style>
    * { box-sizing: border-box; }
 
@@ -304,6 +308,24 @@ th {
   .form-row {
     flex-direction:column;
   }
+}
+ù+è7986543er5ty6uoipè+
+ù
+// mobile bottoni principali in verticale
+@media (max-width:700px) and (orientation: portrait) {
+
+  .btn-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-bar .btn {
+    width: 100%;
+    min-width: unset;
+    height: 48px;
+    font-size: 16px;
+  }
+
 }
   </style>
 </head>
@@ -1042,6 +1064,11 @@ th {
     // === Init ===
     // GET /api/state (una sola chiamata), poi SSE delta events
     loadState();
+
+// === PWA Service Worker ===
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
   </script>
 </body>
 </html>
