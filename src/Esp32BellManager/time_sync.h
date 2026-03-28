@@ -3,26 +3,39 @@
 
 #include <Arduino.h>
 #include <time.h>
+#include <sys/time.h>
 #include <WiFi.h>
 #include "config.h"
 #include "bell_types.h"
 
 // ============================================
 // Sincronizzazione Tempo via NTP
+// Supporta anche il ripristino da tempo persistito
 // ============================================
 
-// Variabili globali per il tempo
+enum TimeSource {
+    TIME_SOURCE_NONE = 0,
+    TIME_SOURCE_PERSISTED = 1,
+    TIME_SOURCE_NTP = 2
+};
+
 static bool ntpSynced = false;
+static bool timeSetAvailable = false;
 static unsigned long lastNtpSync = 0;
 static unsigned long lastSyncAttempt = 0;
 static int32_t gmtOffsetSec = GMT_OFFSET_SEC;
 static int32_t dstOffsetSec = DAYLIGHT_OFFSET_SEC;
+static TimeSource currentTimeSource = TIME_SOURCE_NONE;
+
+static const uint32_t MIN_VALID_EPOCH = 1704067200UL;  // 01/01/2024 00:00:00 UTC
 
 // --- Inizializzazione NTP ---
 void initNTP() {
     ntpSynced = false;
+    timeSetAvailable = false;
     lastNtpSync = 0;
     lastSyncAttempt = 0;
+    currentTimeSource = TIME_SOURCE_NONE;
     Serial.println("[NTP] Inizializzazione completata");
 }
 
@@ -43,6 +56,52 @@ int32_t getDstOffset() {
     return dstOffsetSec;
 }
 
+TimeSource getTimeSource() {
+    return currentTimeSource;
+}
+
+const char* getTimeSourceName() {
+    switch (currentTimeSource) {
+        case TIME_SOURCE_PERSISTED: return "persistito";
+        case TIME_SOURCE_NTP: return "ntp";
+        default: return "nessuno";
+    }
+}
+
+bool isTimeRestoredFromStorage() {
+    return currentTimeSource == TIME_SOURCE_PERSISTED;
+}
+
+// --- Ripristina tempo da epoch persistito ---
+bool restoreTimeFromEpoch(uint32_t epochSeconds) {
+    if (epochSeconds < MIN_VALID_EPOCH) {
+        Serial.printf("[NTP] Epoch persistito non valido: %lu\n", epochSeconds);
+        return false;
+    }
+
+    struct timeval tv;
+    tv.tv_sec = epochSeconds;
+    tv.tv_usec = 0;
+
+    if (settimeofday(&tv, NULL) != 0) {
+        Serial.println("[NTP] Errore settimeofday() durante il ripristino");
+        return false;
+    }
+
+    timeSetAvailable = true;
+    ntpSynced = false;
+    currentTimeSource = TIME_SOURCE_PERSISTED;
+
+    time_t raw = epochSeconds;
+    struct tm timeinfo;
+    localtime_r(&raw, &timeinfo);
+
+    char timeStr[64];
+    strftime(timeStr, sizeof(timeStr), "%d/%m/%Y %H:%M:%S", &timeinfo);
+    Serial.printf("[NTP] Tempo ripristinato da memoria: %s\n", timeStr);
+    return true;
+}
+
 // --- Sincronizza con NTP ---
 bool syncNTP() {
     if (WiFi.status() != WL_CONNECTED) {
@@ -53,10 +112,8 @@ bool syncNTP() {
     lastSyncAttempt = millis();
     Serial.println("[NTP] Avvio sincronizzazione...");
 
-    // Configura NTP
     configTime(gmtOffsetSec, dstOffsetSec, NTP_SERVER_1, NTP_SERVER_2, NTP_SERVER_3);
 
-    // Attendi sincronizzazione con timeout
     unsigned long startWait = millis();
     struct tm timeinfo;
 
@@ -69,6 +126,8 @@ bool syncNTP() {
     }
 
     ntpSynced = true;
+    timeSetAvailable = true;
+    currentTimeSource = TIME_SOURCE_NTP;
     lastNtpSync = millis();
 
     char timeStr[64];
@@ -80,20 +139,17 @@ bool syncNTP() {
 
 // --- Verifica e risincronizza periodicamente ---
 void updateNTP() {
-    // Se non connesso, non tentare
     if (WiFi.status() != WL_CONNECTED) {
         return;
     }
 
     unsigned long now = millis();
 
-    // Risincronizza ogni NTP_SYNC_INTERVAL_MS
     if (ntpSynced && (now - lastNtpSync >= NTP_SYNC_INTERVAL_MS)) {
         Serial.println("[NTP] Risincronizzazione periodica...");
         syncNTP();
     }
 
-    // Se non ancora sincronizzato, riprova ogni 30 secondi
     if (!ntpSynced && (now - lastSyncAttempt >= 30000)) {
         syncNTP();
     }
@@ -105,7 +161,7 @@ bool isNtpSynced() {
 }
 
 bool isTimeSet() {
-    return ntpSynced;
+    return timeSetAvailable;
 }
 
 unsigned long getLastSyncTime() {
@@ -117,14 +173,13 @@ CurrentTime getTime() {
     CurrentTime ct;
     struct tm timeinfo;
 
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         ct.hour = timeinfo.tm_hour;
         ct.minute = timeinfo.tm_min;
         ct.second = timeinfo.tm_sec;
         ct.day = timeinfo.tm_mday;
-        ct.month = timeinfo.tm_mon + 1;  // tm_mon e' 0-11
+        ct.month = timeinfo.tm_mon + 1;
         ct.year = timeinfo.tm_year + 1900;
-        // tm_wday: 0=Domenica, convertiamo in 0=Lunedi
         ct.weekday = (timeinfo.tm_wday + 6) % 7;
     } else {
         ct.hour = 0;
@@ -141,7 +196,7 @@ CurrentTime getTime() {
 
 uint8_t getHour() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         return timeinfo.tm_hour;
     }
     return 0;
@@ -149,7 +204,7 @@ uint8_t getHour() {
 
 uint8_t getMinute() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         return timeinfo.tm_min;
     }
     return 0;
@@ -157,7 +212,7 @@ uint8_t getMinute() {
 
 uint8_t getSecond() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         return timeinfo.tm_sec;
     }
     return 0;
@@ -165,7 +220,7 @@ uint8_t getSecond() {
 
 uint8_t getDay() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         return timeinfo.tm_mday;
     }
     return 1;
@@ -173,7 +228,7 @@ uint8_t getDay() {
 
 uint8_t getMonth() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         return timeinfo.tm_mon + 1;
     }
     return 1;
@@ -181,7 +236,7 @@ uint8_t getMonth() {
 
 uint16_t getYear() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         return timeinfo.tm_year + 1900;
     }
     return 2025;
@@ -189,8 +244,7 @@ uint16_t getYear() {
 
 uint8_t getWeekday() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
-        // Converti da domenica=0 a lunedi=0
+    if (getLocalTime(&timeinfo, 10)) {
         return (timeinfo.tm_wday + 6) % 7;
     }
     return 0;
@@ -199,7 +253,7 @@ uint8_t getWeekday() {
 // --- Formattazione tempo ---
 String getTimeString() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         char buf[9];
         strftime(buf, sizeof(buf), "%H:%M:%S", &timeinfo);
         return String(buf);
@@ -209,7 +263,7 @@ String getTimeString() {
 
 String getTimeStringShort() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         char buf[6];
         strftime(buf, sizeof(buf), "%H:%M", &timeinfo);
         return String(buf);
@@ -219,7 +273,7 @@ String getTimeStringShort() {
 
 String getDateString() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         char buf[11];
         strftime(buf, sizeof(buf), "%d/%m/%Y", &timeinfo);
         return String(buf);
@@ -229,7 +283,7 @@ String getDateString() {
 
 String getDateTimeString() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
         char buf[20];
         strftime(buf, sizeof(buf), "%H:%M %d/%m/%Y", &timeinfo);
         return String(buf);
@@ -245,25 +299,24 @@ time_t getUnixTime() {
 }
 
 // --- Calcola secondi fino a un orario specifico oggi ---
-// Restituisce -1 se l'orario e' gia' passato
 int getSecondsUntil(uint8_t hour, uint8_t minute) {
-    if (!ntpSynced) return -1;
+    if (!timeSetAvailable) return -1;
 
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) return -1;
+    if (!getLocalTime(&timeinfo, 10)) return -1;
 
     int currentSeconds = timeinfo.tm_hour * 3600 + timeinfo.tm_min * 60 + timeinfo.tm_sec;
     int targetSeconds = hour * 3600 + minute * 60;
 
-    int diff = targetSeconds - currentSeconds;
-
-    return diff;  // Puo' essere negativo se gia' passato
+    return targetSeconds - currentSeconds;
 }
 
 // --- Debug ---
 void debugPrintTime() {
     Serial.println("[TIME] === Debug Tempo ===");
     Serial.printf("NTP Sincronizzato: %s\n", ntpSynced ? "SI" : "NO");
+    Serial.printf("Tempo disponibile: %s\n", timeSetAvailable ? "SI" : "NO");
+    Serial.printf("Sorgente tempo: %s\n", getTimeSourceName());
     Serial.printf("Ultima sync: %lu ms fa\n", millis() - lastNtpSync);
     Serial.printf("Ora: %s\n", getTimeString().c_str());
     Serial.printf("Data: %s\n", getDateString().c_str());

@@ -30,6 +30,12 @@
 #define WIFI_CONNECT_TIMEOUT_MS     30000   // Timeout connessione WiFi (30 sec)
 #define WIFI_RECONNECT_INTERVAL_MS  10000   // Intervallo tentativi riconnessione (10 sec)
 #define WIFI_FALLBACK_TO_AP_MS      300000  // Fallback ad AP dopo 5 minuti disconnesso
+#define DEFAULT_WIFI_TX_POWER_LEVEL 3       // 0=max ... 6=min
+
+// --- Rete di emergenza (hotspot salvagente) ---
+// Lascia SSID vuoto per disabilitare il fallback sulla rete di emergenza
+#define RESCUE_WIFI_SSID            "ASUS_RiceWLan"
+#define RESCUE_WIFI_PASS            "pippoplutopaperinominnie"
 
 // --- Configurazione NTP ---
 #define NTP_SERVER_1    "pool.ntp.org"
@@ -81,9 +87,11 @@
 #define STORAGE_KEY_WIFI_PASS   "wifi_pass"
 #define STORAGE_KEY_GMT_OFFSET  "gmt_offset"
 #define STORAGE_KEY_DST_OFFSET  "dst_offset"
+#define STORAGE_KEY_TIME_EPOCH  "time_epoch"
+#define STORAGE_KEY_TIME_VALID  "time_valid"
 
 // --- Versione Firmware ---
-#define FIRMWARE_VERSION        "2.3.0"
+#define FIRMWARE_VERSION        "2.4.0"
 
 // --- Stati WiFi ---
 enum WiFiState {

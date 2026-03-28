@@ -7,6 +7,7 @@
 #include "bell_types.h"
 #include "time_sync.h"
 #include "wifi_manager.h"
+#include "state_sync.h"
 
 // ============================================
 // SSE Handler v2.2 - Stato completo periodico
@@ -31,7 +32,7 @@ static bool sseInitialized = false;
 static unsigned long lastSSEBroadcast = 0;
 
 // Buffer statico per SSE (evita allocazioni)
-static char sseBuf[256];
+static char sseBuf[420];
 
 // ============================================
 // Inizializzazione
@@ -65,27 +66,53 @@ int countSSEClients() {
 
 void buildSSEPayload() {
     struct tm timeinfo;
-    int h = 0, m = 0;
-    if (getLocalTime(&timeinfo)) {
+    int h = 0, m = 0, s = 0;
+    if (getLocalTime(&timeinfo, 10)) {
         h = timeinfo.tm_hour;
         m = timeinfo.tm_min;
+        s = timeinfo.tm_sec;
+    }
+
+    bool relayOn = false;
+    bool isRinging = false;
+    uint8_t ringingBellId = 0;
+    bool globalEnabled = true;
+    int nextIn = getSecondsToNextBell();
+    int nextH = 0;
+    int nextM = 0;
+    String nextTime = getNextBellTime();
+    String nextType = getNextBellType();
+
+    if (nextTime.length() >= 5) {
+        nextH = nextTime.substring(0, 2).toInt();
+        nextM = nextTime.substring(3, 5).toInt();
+    }
+
+    if (lockSharedState()) {
+        relayOn = systemStatus.relayOn;
+        isRinging = systemStatus.isRinging;
+        ringingBellId = systemStatus.ringingBellId;
+        globalEnabled = settings.globalEnabled;
+        unlockSharedState();
     }
 
     snprintf(sseBuf, sizeof(sseBuf),
         "{"
-        "\"h\":%d,\"m\":%d,"
+        "\"h\":%d,\"m\":%d,\"s\":%d,"
         "\"relay\":%d,\"ring\":%d,\"ringId\":%d,"
+        "\"nextIn\":%d,\"nextH\":%d,\"nextM\":%d,\"nextT\":\"%s\","
         "\"wifi\":%d,\"ntp\":%d,\"global\":%d,"
         "\"btn\":%d,\"ledW\":%d,\"ledR\":%d,"
         "\"heap\":%lu,\"up\":%lu"
         "}",
-        h, m,
-        systemStatus.relayOn ? 1 : 0,
-        systemStatus.isRinging ? 1 : 0,
-        systemStatus.ringingBellId,
+        h, m, s,
+        relayOn ? 1 : 0,
+        isRinging ? 1 : 0,
+        ringingBellId,
+        nextIn, nextH, nextM, nextType.c_str(),
         (int)getWiFiState(),
         isNtpSynced() ? 1 : 0,
-        settings.globalEnabled ? 1 : 0,
+        globalEnabled ? 1 : 0,
         digitalRead(PIN_BUTTON) == LOW ? 1 : 0,
         digitalRead(PIN_LED_WIFI) == LOW ? 1 : 0,
         digitalRead(PIN_LED_RELAY) == LOW ? 1 : 0,

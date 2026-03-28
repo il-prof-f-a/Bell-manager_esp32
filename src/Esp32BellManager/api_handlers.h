@@ -11,6 +11,7 @@
 #include "schedule_engine.h"
 #include "wifi_manager.h"
 #include "tm1621_display.h"
+#include "state_sync.h"
 
 // ============================================
 // Handler API REST v2.0
@@ -26,20 +27,30 @@ extern SystemStatus systemStatus;
 // === Helper Functions ===
 
 uint8_t findFreeId() {
+    if (!lockSharedState()) return 0;
     for (uint8_t id = 1; id <= 255; id++) {
         bool found = false;
         for (uint8_t i = 0; i < bellCount; i++) {
             if (bells[i].id == id) { found = true; break; }
         }
-        if (!found) return id;
+        if (!found) {
+            unlockSharedState();
+            return id;
+        }
     }
+    unlockSharedState();
     return 0;
 }
 
 int findBellById(uint8_t id) {
+    if (!lockSharedState()) return -1;
     for (uint8_t i = 0; i < bellCount; i++) {
-        if (bells[i].id == id) return i;
+        if (bells[i].id == id) {
+            unlockSharedState();
+            return i;
+        }
     }
+    unlockSharedState();
     return -1;
 }
 
@@ -95,6 +106,11 @@ void handleGetBells() {
     // Costruisci JSON manualmente per evitare frammentazione
     String response = "[";
 
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
     for (uint8_t i = 0; i < bellCount; i++) {
         if (i > 0) response += ",";
         response += "{\"id\":";
@@ -114,9 +130,9 @@ void handleGetBells() {
         response += "\",\"daysStr\":\"";
         response += getDaysString(bells[i].days);
         response += "\"}";
-        yield();  // Cedi al WiFi stack tra ogni bell
     }
     response += "]";
+    unlockSharedState();
 
     server.send(200, "application/json", response);
     yield();
@@ -124,11 +140,6 @@ void handleGetBells() {
 
 void handleCreateBell() {
     addCorsHeaders();
-
-    if (bellCount >= MAX_BELLS) {
-        sendError(400, "Numero massimo campanelle raggiunto");
-        return;
-    }
 
     if (!server.hasArg("plain")) {
         sendError(400, "Corpo richiesta mancante");
@@ -146,11 +157,23 @@ void handleCreateBell() {
         return;
     }
 
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
+    if (bellCount >= MAX_BELLS) {
+        unlockSharedState();
+        sendError(400, "Numero massimo campanelle raggiunto");
+        return;
+    }
+
     Bell& bell = bells[bellCount];
     initBell(bell);
 
     bell.id = findFreeId();
     if (bell.id == 0) {
+        unlockSharedState();
         sendError(500, "Impossibile generare ID");
         return;
     }
@@ -163,12 +186,14 @@ void handleCreateBell() {
 
     if (doc.containsKey("type")) {
         strncpy(bell.type, doc["type"] | "Campanella", MAX_TYPE_LENGTH - 1);
+        bell.type[MAX_TYPE_LENGTH - 1] = '\0';
     } else {
         strcpy(bell.type, "Campanella");
     }
 
     bellCount++;
     saveBells(bells, bellCount);
+    unlockSharedState();
 
     JsonDocument respDoc;
     respDoc["success"] = true;
@@ -204,6 +229,11 @@ void handleUpdateBell() {
 
     Bell& bell = bells[idx];
 
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
     if (doc.containsKey("hour")) bell.hour = doc["hour"];
     if (doc.containsKey("minute")) bell.minute = doc["minute"];
     if (doc.containsKey("duration")) bell.duration = doc["duration"];
@@ -211,9 +241,11 @@ void handleUpdateBell() {
     if (doc.containsKey("enabled")) bell.enabled = doc["enabled"];
     if (doc.containsKey("type")) {
         strncpy(bell.type, doc["type"] | "", MAX_TYPE_LENGTH - 1);
+        bell.type[MAX_TYPE_LENGTH - 1] = '\0';
     }
 
     saveBells(bells, bellCount);
+    unlockSharedState();
     sendSuccess("Campanella aggiornata");
 }
 
@@ -230,12 +262,18 @@ void handleDeleteBell() {
         return;
     }
 
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
     for (int i = idx; i < bellCount - 1; i++) {
         bells[i] = bells[i + 1];
     }
     bellCount--;
 
     saveBells(bells, bellCount);
+    unlockSharedState();
     sendSuccess("Campanella eliminata");
 }
 
@@ -244,11 +282,21 @@ void handleDeleteBell() {
 void handleGetSettings() {
     addCorsHeaders();
 
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
+    Settings settingsSnapshot = settings;
+    unlockSharedState();
+
     // Risposta piccola - usa buffer statico
     snprintf(jsonBuffer, sizeof(jsonBuffer),
-             "{\"institutionName\":\"%s\",\"globalEnabled\":%s}",
-             settings.institutionName,
-             settings.globalEnabled ? "true" : "false");
+             "{\"institutionName\":\"%s\",\"globalEnabled\":%s,\"wifiTxPowerLevel\":%u,\"wifiTxPowerLabel\":\"%s\"}",
+             settingsSnapshot.institutionName,
+             settingsSnapshot.globalEnabled ? "true" : "false",
+             settingsSnapshot.wifiTxPowerLevel,
+             getWiFiTxPowerLabel(settingsSnapshot.wifiTxPowerLevel));
     server.send(200, "application/json", jsonBuffer);
     yield();
 }
@@ -267,14 +315,27 @@ void handleUpdateSettings() {
         return;
     }
 
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
     if (doc.containsKey("institutionName")) {
         strncpy(settings.institutionName, doc["institutionName"] | "", MAX_NAME_LENGTH - 1);
+        settings.institutionName[MAX_NAME_LENGTH - 1] = '\0';
     }
     if (doc.containsKey("globalEnabled")) {
         settings.globalEnabled = doc["globalEnabled"];
     }
+    if (doc.containsKey("wifiTxPowerLevel")) {
+        uint8_t level = doc["wifiTxPowerLevel"] | DEFAULT_WIFI_TX_POWER_LEVEL;
+        settings.wifiTxPowerLevel = (level <= 6) ? level : DEFAULT_WIFI_TX_POWER_LEVEL;
+    }
 
     saveSettings(settings);
+    uint8_t wifiTxPowerLevel = settings.wifiTxPowerLevel;
+    unlockSharedState();
+    setWiFiTxPowerLevel(wifiTxPowerLevel, true);
     sendSuccess("Impostazioni salvate");
 }
 
@@ -289,7 +350,23 @@ void handleGetStatus() {
     }
 
     // Usa buffer locale più grande per status
-    static char statusBuffer[512];
+    static char statusBuffer[640];
+    Settings settingsSnapshot;
+    SystemStatus systemStatusSnapshot;
+    uint8_t bellCountSnapshot = 0;
+    uint8_t logCountSnapshot = 0;
+
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
+    settingsSnapshot = settings;
+    systemStatusSnapshot = systemStatus;
+    bellCountSnapshot = bellCount;
+    logCountSnapshot = getLogCount();
+
+    unlockSharedState();
 
     snprintf(statusBuffer, sizeof(statusBuffer),
         "{"
@@ -308,23 +385,27 @@ void handleGetStatus() {
         "\"logCount\":%d,"
         "\"wifiState\":%d,"
         "\"wifiStateName\":\"%s\","
+        "\"timeSource\":\"%s\","
+        "\"usingRescue\":%s,"
         "\"version\":\"%s\""
         "}",
         getTimeStringShort().c_str(),
         getDateString().c_str(),
         isTimeSet() ? "true" : "false",
         isNtpSynced() ? "true" : "false",
-        systemStatus.relayOn ? "true" : "false",
-        systemStatus.isRinging ? "true" : "false",
-        systemStatus.ringingBellId,
-        settings.globalEnabled ? "true" : "false",
-        settings.institutionName,
+        systemStatusSnapshot.relayOn ? "true" : "false",
+        systemStatusSnapshot.isRinging ? "true" : "false",
+        systemStatusSnapshot.ringingBellId,
+        settingsSnapshot.globalEnabled ? "true" : "false",
+        settingsSnapshot.institutionName,
         getNextBellTime().c_str(),
         getNextBellType().c_str(),
-        bellCount,
-        getLogCount(),
+        bellCountSnapshot,
+        logCountSnapshot,
         (int)getWiFiState(),
         getWiFiStateName(),
+        getTimeSourceName(),
+        isUsingRescueNetwork() ? "true" : "false",
         FIRMWARE_VERSION
     );
 
@@ -363,21 +444,21 @@ void handleGetLog() {
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
 
-    LogEntry* log = getLog();
-    uint8_t count = getLogCount();
+    LogEntry logCopy[MAX_LOG_ENTRIES];
+    uint8_t count = copyLogEntries(logCopy, MAX_LOG_ENTRIES);
 
     for (int i = count - 1; i >= 0; i--) {
         JsonObject obj = arr.add<JsonObject>();
-        obj["bellId"] = log[i].bellId;
-        obj["hour"] = log[i].hour;
-        obj["minute"] = log[i].minute;
-        obj["day"] = log[i].day;
-        obj["month"] = log[i].month;
-        obj["year"] = log[i].year;
+        obj["bellId"] = logCopy[i].bellId;
+        obj["hour"] = logCopy[i].hour;
+        obj["minute"] = logCopy[i].minute;
+        obj["day"] = logCopy[i].day;
+        obj["month"] = logCopy[i].month;
+        obj["year"] = logCopy[i].year;
 
         char timeStr[20];
         snprintf(timeStr, sizeof(timeStr), "%02d:%02d %02d/%02d/%04d",
-                 log[i].hour, log[i].minute, log[i].day, log[i].month, log[i].year);
+                 logCopy[i].hour, logCopy[i].minute, logCopy[i].day, logCopy[i].month, logCopy[i].year);
         obj["timeStr"] = timeStr;
     }
 
@@ -398,25 +479,37 @@ void handleGetWifiStatus() {
     addCorsHeaders();
 
     // Usa buffer statico per risposta WiFi
-    static char wifiBuffer[256];
+    static char wifiBuffer[512];
 
     snprintf(wifiBuffer, sizeof(wifiBuffer),
         "{"
         "\"state\":%d,"
         "\"stateName\":\"%s\","
         "\"ssid\":\"%s\","
+        "\"configuredSsid\":\"%s\","
         "\"ip\":\"%s\","
         "\"rssi\":%d,"
         "\"ntpSynced\":%s,"
-        "\"isAP\":%s"
+        "\"isAP\":%s,"
+        "\"timeSource\":\"%s\","
+        "\"usingRescue\":%s,"
+        "\"rescueConfigured\":%s,"
+        "\"txPowerLevel\":%u,"
+        "\"txPowerLabel\":\"%s\""
         "}",
         (int)getWiFiState(),
         getWiFiStateName(),
         getWiFiSSID(),
+        getConfiguredWiFiSSID(),
         getLocalIP().c_str(),
         WiFi.RSSI(),
         isNtpSynced() ? "true" : "false",
-        isInAPMode() ? "true" : "false"
+        isInAPMode() ? "true" : "false",
+        getTimeSourceName(),
+        isUsingRescueNetwork() ? "true" : "false",
+        isRescueNetworkConfigured() ? "true" : "false",
+        getWiFiTxPowerLevel(),
+        getWiFiTxPowerLabel(getWiFiTxPowerLevel())
     );
 
     server.send(200, "application/json", wifiBuffer);
@@ -573,6 +666,20 @@ void handleDebugStatus() {
     bool relayOn = digitalRead(PIN_RELAY) == HIGH;
     bool ledWifiOn = digitalRead(PIN_LED_WIFI) == LOW;
     bool ledRelayOn = digitalRead(PIN_LED_RELAY) == LOW;
+    bool globalEnabled = true;
+    bool isRinging = false;
+    uint8_t bellCountSnapshot = 0;
+
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
+    globalEnabled = settings.globalEnabled;
+    isRinging = systemStatus.isRinging;
+    bellCountSnapshot = bellCount;
+
+    unlockSharedState();
 
     yield();  // Cedi prima di costruire JSON
 
@@ -622,9 +729,9 @@ void handleDebugStatus() {
         getTimeStringShort().c_str(),
         getDateString().c_str(),
         // Bells values
-        bellCount,
-        settings.globalEnabled ? "true" : "false",
-        systemStatus.isRinging ? "true" : "false",
+        bellCountSnapshot,
+        globalEnabled ? "true" : "false",
+        isRinging ? "true" : "false",
         // Display TM1621 v9.0 (ESPHome exact)
         tm1621_is_initialized() ? "true" : "false",
         tm1621_is_lcd_on() ? "true" : "false",
@@ -885,12 +992,33 @@ void handleGetState() {
 
     // Pre-calcola valori (evita chiamate multiple)
     struct tm timeinfo;
-    bool hasTime = getLocalTime(&timeinfo);
+    bool hasTime = getLocalTime(&timeinfo, 10);
     int hour = hasTime ? timeinfo.tm_hour : 0;
     int minute = hasTime ? timeinfo.tm_min : 0;
+    int second = hasTime ? timeinfo.tm_sec : 0;
+
+    Bell bellsSnapshot[MAX_BELLS];
+    Settings settingsSnapshot;
+    SystemStatus systemStatusSnapshot;
+    uint8_t bellCountSnapshot = 0;
+
+    if (!lockSharedState()) {
+        sendError(503, "Stato occupato");
+        return;
+    }
+
+    settingsSnapshot = settings;
+    systemStatusSnapshot = systemStatus;
+    bellCountSnapshot = bellCount;
+    for (uint8_t i = 0; i < bellCountSnapshot; i++) {
+        bellsSnapshot[i] = bells[i];
+    }
+
+    unlockSharedState();
 
     int nextH = 0, nextM = 0;
     String nextTime = getNextBellTime();
+    int nextIn = getSecondsToNextBell();
     if (nextTime.length() >= 5) {
         nextH = nextTime.substring(0, 2).toInt();
         nextM = nextTime.substring(3, 5).toInt();
@@ -899,47 +1027,53 @@ void handleGetState() {
     // Costruisci JSON con snprintf (molto piu' veloce)
     int pos = snprintf(stateBuffer, sizeof(stateBuffer),
         "{"
-        "\"system\":{\"version\":\"%s\",\"name\":\"%s\",\"global\":%s},"
-        "\"wifi\":{\"state\":%d,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%d},"
-        "\"time\":{\"h\":%d,\"m\":%d,\"date\":\"%s\",\"ntp\":%s,\"gmt\":%ld,\"dst\":%ld},"
+        "\"system\":{\"version\":\"%s\",\"name\":\"%s\",\"global\":%s,\"wifiTxPowerLevel\":%u,\"wifiTxPowerLabel\":\"%s\"},"
+        "\"wifi\":{\"state\":%d,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,\"rescue\":%s,\"txPowerLevel\":%u,\"txPowerLabel\":\"%s\"},"
+        "\"time\":{\"h\":%d,\"m\":%d,\"s\":%d,\"date\":\"%s\",\"ntp\":%s,\"gmt\":%ld,\"dst\":%ld,\"src\":\"%s\"},"
         "\"bells\":[",
         FIRMWARE_VERSION,
-        settings.institutionName,
-        settings.globalEnabled ? "true" : "false",
+        settingsSnapshot.institutionName,
+        settingsSnapshot.globalEnabled ? "true" : "false",
+        settingsSnapshot.wifiTxPowerLevel,
+        getWiFiTxPowerLabel(settingsSnapshot.wifiTxPowerLevel),
         (int)getWiFiState(),
         getWiFiSSID(),
         getLocalIP().c_str(),
         WiFi.RSSI(),
-        hour, minute,
+        isUsingRescueNetwork() ? "true" : "false",
+        getWiFiTxPowerLevel(),
+        getWiFiTxPowerLabel(getWiFiTxPowerLevel()),
+        hour, minute, second,
         getDateString().c_str(),
         isNtpSynced() ? "true" : "false",
         getGmtOffset(),
-        getDstOffset()
+        getDstOffset(),
+        getTimeSourceName()
     );
 
     // Aggiungi bells
-    for (uint8_t i = 0; i < bellCount && pos < (int)sizeof(stateBuffer) - 200; i++) {
+    for (uint8_t i = 0; i < bellCountSnapshot && pos < (int)sizeof(stateBuffer) - 200; i++) {
         pos += snprintf(stateBuffer + pos, sizeof(stateBuffer) - pos,
             "%s{\"id\":%d,\"h\":%d,\"m\":%d,\"d\":%d,\"days\":%d,\"on\":%d,\"t\":\"%s\"}",
             i > 0 ? "," : "",
-            bells[i].id, bells[i].hour, bells[i].minute,
-            bells[i].duration, bells[i].days,
-            bells[i].enabled ? 1 : 0, bells[i].type
+            bellsSnapshot[i].id, bellsSnapshot[i].hour, bellsSnapshot[i].minute,
+            bellsSnapshot[i].duration, bellsSnapshot[i].days,
+            bellsSnapshot[i].enabled ? 1 : 0, bellsSnapshot[i].type
         );
     }
 
     // Chiudi bells e aggiungi resto
     pos += snprintf(stateBuffer + pos, sizeof(stateBuffer) - pos,
         "],"
-        "\"sched\":{\"ring\":%s,\"ringId\":%d,\"nextH\":%d,\"nextM\":%d,\"nextT\":\"%s\"},"
+        "\"sched\":{\"ring\":%s,\"ringId\":%d,\"nextH\":%d,\"nextM\":%d,\"nextIn\":%d,\"nextT\":\"%s\"},"
         "\"io\":{\"relay\":%d,\"btn\":%d,\"ledW\":%d,\"ledR\":%d},"
         "\"debug\":{\"heap\":%lu,\"up\":%lu}"
         "}",
-        systemStatus.isRinging ? "true" : "false",
-        systemStatus.ringingBellId,
-        nextH, nextM,
+        systemStatusSnapshot.isRinging ? "true" : "false",
+        systemStatusSnapshot.ringingBellId,
+        nextH, nextM, nextIn,
         getNextBellType().c_str(),
-        systemStatus.relayOn ? 1 : 0,
+        systemStatusSnapshot.relayOn ? 1 : 0,
         digitalRead(PIN_BUTTON) == LOW ? 1 : 0,
         digitalRead(PIN_LED_WIFI) == LOW ? 1 : 0,
         digitalRead(PIN_LED_RELAY) == LOW ? 1 : 0,
@@ -1056,6 +1190,11 @@ bool handleBellsWithId() {
             return true;
         }
 
+        if (!lockSharedState()) {
+            sendError(503, "Stato occupato");
+            return true;
+        }
+
         JsonDocument doc;
         doc["id"] = bells[idx].id;
         doc["hour"] = bells[idx].hour;
@@ -1065,6 +1204,7 @@ bool handleBellsWithId() {
         doc["enabled"] = bells[idx].enabled;
         doc["type"] = bells[idx].type;
         doc["daysStr"] = getDaysString(bells[idx].days);
+        unlockSharedState();
 
         String response;
         serializeJson(doc, response);

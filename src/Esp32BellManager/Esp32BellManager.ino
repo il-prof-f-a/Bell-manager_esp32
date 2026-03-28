@@ -42,6 +42,7 @@
 #include "sse_handler.h"
 #include "web_page.h"
 #include "debug_page.h"
+#include "state_sync.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "icona_BellManager.h"
@@ -60,12 +61,14 @@ SystemStatus systemStatus;
 
 // Task handle per web server
 TaskHandle_t webServerTaskHandle = NULL;
+TaskHandle_t bellControlTaskHandle = NULL;
 
 unsigned long lastSerialStatus = 0;
 unsigned long lastDisplayUpdate = 0;
 unsigned long lastHeapCheck = 0;
 unsigned long lastSSEUpdate = 0;
 size_t lastFreeHeap = 0;
+uint32_t lastPersistedMinuteEpoch = 0;
 
 // ============================================
 // Callback cambio stato WiFi
@@ -287,6 +290,40 @@ void webServerTask(void * parameter) {
 }
 
 // ============================================
+// Ripristino e persistenza orario
+// ============================================
+
+void restoreClockFromStorage() {
+  uint32_t persistedEpoch = 0;
+
+  if (!loadPersistedTime(&persistedEpoch)) {
+    return;
+  }
+
+  if (restoreTimeFromEpoch(persistedEpoch)) {
+    lastPersistedMinuteEpoch = persistedEpoch / 60UL;
+  }
+}
+
+void persistCurrentTimeIfNeeded() {
+  if (!isTimeSet()) return;
+
+  time_t nowEpoch = getUnixTime();
+  if (nowEpoch < 1704067200UL) return;
+
+  uint32_t minuteEpoch = (uint32_t)(nowEpoch / 60UL);
+  if (minuteEpoch == lastPersistedMinuteEpoch) return;
+
+  CurrentTime nowTime = getTime();
+  if (nowTime.second > 5) return;
+
+  uint32_t normalizedEpoch = minuteEpoch * 60UL;
+  if (savePersistedTime(normalizedEpoch)) {
+    lastPersistedMinuteEpoch = minuteEpoch;
+  }
+}
+
+// ============================================
 // Carica dati da storage
 // ============================================
 
@@ -297,6 +334,7 @@ void loadData() {
 
   // Carica impostazioni
   loadSettings(settings);
+  setWiFiTxPowerLevel(settings.wifiTxPowerLevel, false);
 
   // Carica campanelle
   bellCount = loadBells(bells, MAX_BELLS);
@@ -313,6 +351,9 @@ void loadData() {
   int32_t gmtOffset, dstOffset;
   loadTimezone(&gmtOffset, &dstOffset);
   setTimezone(gmtOffset, dstOffset);
+
+  // Ripristina l'orologio persistito prima di tentare NTP
+  restoreClockFromStorage();
 }
 
 // ============================================
@@ -321,10 +362,16 @@ void loadData() {
 
 void handleButton() {
   uint8_t event = readButton();
+  bool isRingingNow = false;
+
+  if (lockSharedState()) {
+    isRingingNow = systemStatus.isRinging;
+    unlockSharedState();
+  }
 
   if (event == 1) {
     // Pressione breve: toggle relay manuale
-    if (systemStatus.isRinging) {
+    if (isRingingNow) {
       stopRinging();
       Serial.println("[BUTTON] Campanella fermata");
     } else {
@@ -334,10 +381,16 @@ void handleButton() {
   }
   else if (event == 2) {
     // Pressione lunga (3s): toggle abilitazione globale
+    if (!lockSharedState()) {
+      Serial.println("[BUTTON] Stato occupato, toggle globale annullato");
+      return;
+    }
     settings.globalEnabled = !settings.globalEnabled;
     saveSettings(settings);
+    bool globalEnabled = settings.globalEnabled;
+    unlockSharedState();
     Serial.printf("[BUTTON] Campanelle globali: %s\n",
-                  settings.globalEnabled ? "ABILITATE" : "DISABILITATE");
+                  globalEnabled ? "ABILITATE" : "DISABILITATE");
 
     // Feedback: lampeggia LED relay
     for (int i = 0; i < 3; i++) {
@@ -370,7 +423,7 @@ void handleButton() {
 // ============================================
 
 void updateNTPStatus() {
-  if (getWiFiState() == WIFI_STATE_CONNECTED) {
+  if (getWiFiState() == WIFI_STATE_CONNECTED || getWiFiState() == WIFI_STATE_SYNCED) {
     updateNTP();
 
     // Controlla se NTP si e' sincronizzato
@@ -418,14 +471,34 @@ void printSerialStatus() {
   if (now - lastSerialStatus < 30000) return;
   lastSerialStatus = now;
 
+  Settings settingsSnapshot;
+  SystemStatus systemStatusSnapshot;
+  uint8_t bellCountSnapshot = 0;
+
+  if (!lockSharedState()) {
+    Serial.println("[STATE] Stato occupato, skip status seriale");
+    return;
+  }
+
+  settingsSnapshot = settings;
+  systemStatusSnapshot = systemStatus;
+  bellCountSnapshot = bellCount;
+
+  unlockSharedState();
+
   Serial.println();
   Serial.println("========== STATO SISTEMA ==========");
   Serial.printf("Ora: %s %s\n", getTimeStringShort().c_str(), getDateString().c_str());
+  Serial.printf("Tempo: %s (%s)\n", isTimeSet() ? "DISPONIBILE" : "NON DISPONIBILE", getTimeSourceName());
   Serial.printf("NTP Sync: %s\n", isNtpSynced() ? "SI" : "NO");
-  Serial.printf("WiFi: %s (IP: %s)\n", getWiFiStateName(), getLocalIP().c_str());
-  Serial.printf("Campanelle: %d/%d\n", bellCount, MAX_BELLS);
-  Serial.printf("Globale: %s\n", settings.globalEnabled ? "ON" : "OFF");
-  Serial.printf("Relay: %s\n", systemStatus.relayOn ? "ON" : "OFF");
+  Serial.printf("WiFi: %s (IP: %s, SSID: %s%s)\n",
+                getWiFiStateName(),
+                getLocalIP().c_str(),
+                getWiFiSSID(),
+                isUsingRescueNetwork() ? " [EMERGENZA]" : "");
+  Serial.printf("Campanelle: %d/%d\n", bellCountSnapshot, MAX_BELLS);
+  Serial.printf("Globale: %s\n", settingsSnapshot.globalEnabled ? "ON" : "OFF");
+  Serial.printf("Relay: %s\n", systemStatusSnapshot.relayOn ? "ON" : "OFF");
   Serial.printf("Prossima: %s\n", getNextBellInfo().c_str());
   Serial.printf("Heap: %d bytes\n", ESP.getFreeHeap());
   Serial.println("------------------------------------");
@@ -475,6 +548,7 @@ void setup() {
   // Inizializza stato sistema
   Serial.println("[INIT] Sistema...");
   initSystemStatus(systemStatus);
+  initStateSync();
 
   // Inizializza NTP
   Serial.println("[INIT] NTP...");
@@ -492,7 +566,7 @@ void setup() {
   delay(1000);
 
   // Avvia WiFi (AP o Station in base alle credenziali salvate)
-  if (hasWiFiCredentials()) {
+  if (hasWiFiCredentials() || isRescueNetworkConfigured()) {
     Serial.println("[INIT] Avvio WiFi Station...");
     startStationMode();
   } else {
@@ -523,10 +597,21 @@ void setup() {
     0                     // Core 0 (WiFi core)
   );
 
+  Serial.println("[INIT] Avvio task Campanella su Core 1...");
+  xTaskCreatePinnedToCore(
+    bellControlTask,        // Funzione del task
+    "BellControlTask",      // Nome del task
+    6144,                   // Stack size (bytes)
+    NULL,                   // Parametri
+    2,                      // Priorita' piu' alta del loop di manutenzione
+    &bellControlTaskHandle, // Handle del task
+    1                       // Core 1
+  );
+
   Serial.println();
   Serial.println("[INIT] === SISTEMA PRONTO ===");
   Serial.printf("[INIT] Core 0: Web Server + WiFi\n");
-  Serial.printf("[INIT] Core 1: Loop principale (relay, display, scheduler)\n");
+  Serial.printf("[INIT] Core 1: Task campanella realtime + loop manutenzione\n");
 
   if (isInAPMode()) {
     Serial.printf("[INIT] Connetti a WiFi: %s\n", AP_SSID);
@@ -543,16 +628,23 @@ void setup() {
 // ============================================
 
 bool hasBellsToday() {
-  if (!isNtpSynced() || !settings.globalEnabled) return false;
+  if (!isTimeSet()) return false;
+  if (!lockSharedState()) return false;
+  if (!settings.globalEnabled) {
+    unlockSharedState();
+    return false;
+  }
 
   CurrentTime t = getTime();
   // t.weekday: 0=Lun, 6=Dom
 
   for (uint8_t i = 0; i < bellCount; i++) {
     if (bells[i].enabled && isDayEnabled(bells[i].days, t.weekday)) {
+      unlockSharedState();
       return true;
     }
   }
+  unlockSharedState();
   return false;
 }
 
@@ -572,7 +664,11 @@ void updateDisplayIndicators() {
   bool wifiInd = clientConnected && blink;
 
   // %RH: lampeggia durante il ringing
-  bool ringing = systemStatus.isRinging && blink;
+  bool ringing = false;
+  if (lockSharedState()) {
+    ringing = systemStatus.isRinging && blink;
+    unlockSharedState();
+  }
 
   tm1621_set_indicators(clockSync, apMode, alarms, wifiInd, ringing);
 }
@@ -592,15 +688,21 @@ void updateDisplayTime() {
   updateDisplayIndicators();
 
   // Se campanella in corso, mostra "bELL"
-  if (systemStatus.isRinging) {
+  bool isRingingNow = false;
+  if (lockSharedState()) {
+    isRingingNow = systemStatus.isRinging;
+    unlockSharedState();
+  }
+
+  if (isRingingNow) {
     displayBell();
     return;
   }
 
-  // Se NTP sincronizzato, mostra ora
-  if (isNtpSynced()) {
+  // Se il tempo e' disponibile, mostra ora anche se ripristinato da memoria
+  if (isTimeSet()) {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
+    if (getLocalTime(&timeinfo, 10)) {
       displayTime(timeinfo.tm_hour, timeinfo.tm_min);
     }
   } else if (getWiFiState() == WIFI_STATE_AP_MODE) {
@@ -609,6 +711,25 @@ void updateDisplayTime() {
   } else {
     // Non sincronizzato, mostra trattini
     displayLoading();
+  }
+}
+
+// ============================================
+// Task Campanella (Core 1, priorita' alta)
+// Gestisce il flusso real-time separato dalla rete
+// ============================================
+
+void bellControlTask(void * parameter) {
+  Serial.println("[BELL] Task campanella avviato su Core 1");
+
+  for (;;) {
+    runScheduler();
+    handleButton();
+    updateRelayLed();
+    updateDisplayTime();
+    persistCurrentTimeIfNeeded();
+
+    vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
 
@@ -625,17 +746,8 @@ void loop() {
   // Gestisci NTP
   updateNTPStatus();
 
-  // Esegui scheduler campanelle
-  runScheduler();
-
-  // Gestisci pulsante
-  handleButton();
-
-  // Aggiorna LED
-  updateLEDs();
-
-  // Aggiorna Display LCD
-  updateDisplayTime();
+  // Aggiorna solo il LED WiFi nel loop di manutenzione
+  updateWifiLed();
 
   // Notifica client SSE se stato cambiato
   notifySSEIfChanged();

@@ -44,6 +44,7 @@ struct Bell {
 struct Settings {
     char     institutionName[MAX_NAME_LENGTH];  // Nome istituzione
     bool     globalEnabled;                      // Abilita/disabilita tutte le campanelle
+    uint8_t  wifiTxPowerLevel;                   // Livello potenza WiFi (0=max ... 6=min)
 };
 
 // --- Struttura Voce Log ---
@@ -114,6 +115,7 @@ inline void initSettings(Settings& settings) {
     memset(settings.institutionName, 0, MAX_NAME_LENGTH);
     strcpy(settings.institutionName, "Istituzione");
     settings.globalEnabled = true;
+    settings.wifiTxPowerLevel = DEFAULT_WIFI_TX_POWER_LEVEL;
 }
 
 inline void initSystemStatus(SystemStatus& status) {

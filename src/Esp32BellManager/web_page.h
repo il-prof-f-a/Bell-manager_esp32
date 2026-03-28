@@ -39,10 +39,52 @@ body {
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
-.header-section { text-align: center; }
+.header-section {
+  text-align: center;
+  min-width: 0;
+}
 .header-title { font-size: 22px; font-weight: bold; }
 .header-label { font-size: 14px; opacity: 0.85; }
 .header-value { font-size: 18px; font-weight: 600; }
+#currentTime {
+  font-size: 24px;
+  letter-spacing: 0.08em;
+}
+.next-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.next-bell-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-height: 42px;
+}
+.countdown-badge {
+  min-height: 20px;
+  padding: 2px 8px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  background: #f44336;
+  box-shadow: 0 4px 14px rgba(244, 67, 54, 0.35);
+  opacity: 0;
+  transform: translateY(4px) scale(0.92);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+.countdown-badge.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  animation: countdownPulse 1s ease-in-out infinite;
+}
+@keyframes countdownPulse {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(0) scale(1.08); }
+}
 
 /* STATUS DOT */
 .status-dot {
@@ -333,7 +375,7 @@ th {
   <div class="header">
     <div class="header-section">
       <div class="header-label">Ora</div>
-      <div class="header-value" id="currentTime">--:--</div>
+      <div class="header-value" id="currentTime">--:--:--</div>
       <div class="header-label" id="currentDate">--/--/----</div>
     </div>
     <div class="header-section">
@@ -343,10 +385,13 @@ th {
         <span id="wifiStatusText">Disconnesso</span>
       </div>
     </div>
-    <div class="header-section">
+    <div class="header-section next-section">
       <div class="header-label">Prossima</div>
       <div class="header-value" id="nextBellType">Nessuna</div>
-      <div class="header-label" id="nextBellTime">--:--</div>
+      <div class="next-bell-box">
+        <div class="countdown-badge" id="nextBellCountdown"></div>
+        <div class="header-label" id="nextBellTime">--:--</div>
+      </div>
     </div>
   </div>
 
@@ -375,7 +420,7 @@ th {
       </table>
     </div>
 
-    <div class="footer">Bell-Manager v2.0 - Made with love</div>
+    <div class="footer">Bell-Manager v2.0 - Made with love by Christian Mosci</div>
   </div>
 
   <!-- Modal Aggiungi/Modifica Campanella -->
@@ -486,6 +531,19 @@ th {
       </div>
 
       <div class="form-group">
+        <label>Potenza WiFi</label>
+        <select id="settingsWifiTxPower">
+          <option value="0">Massima (19.5 dBm)</option>
+          <option value="1">Alta (17 dBm)</option>
+          <option value="2">Medio-alta (15 dBm)</option>
+          <option value="3" selected>Media (11 dBm)</option>
+          <option value="4">Medio-bassa (8.5 dBm)</option>
+          <option value="5">Bassa (5 dBm)</option>
+          <option value="6">Molto bassa (2 dBm)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
         <label>Log Campanelle</label>
         <div class="log-list" id="bellLog">Nessun log</div>
       </div>
@@ -548,10 +606,10 @@ th {
     // === Stato locale ===
     let state = {
       bells: [],
-      system: { name: '', global: true, version: '' },
-      time: { h: 0, m: 0, ntp: false },
+      system: { name: '', global: true, version: '', wifiTxPowerLevel: 3, wifiTxPowerLabel: '' },
+      time: { h: 0, m: 0, s: 0, ntp: false },
       wifi: { state: 0, name: '' },
-      sched: { ring: false, ringId: 0, nextH: 0, nextM: 0, nextT: '' }
+      sched: { ring: false, ringId: 0, nextH: 0, nextM: 0, nextIn: -1, nextT: '' }
     };
     let editingId = null;
     let eventSource = null;
@@ -604,7 +662,9 @@ th {
       if (d.h !== undefined && d.m !== undefined) {
         state.time.h = d.h;
         state.time.m = d.m;
+        state.time.s = d.s || 0;
         updateTimeUI();
+        updateCountdownUI();
       }
 
       // WiFi
@@ -627,20 +687,52 @@ th {
       if (d.ring !== undefined) {
         state.sched.ring = d.ring === 1;
         state.sched.ringId = d.ringId || 0;
+        updateCountdownUI();
+      }
+
+      if (d.nextH !== undefined) {
+        state.sched.nextH = d.nextH;
+      }
+      if (d.nextM !== undefined) {
+        state.sched.nextM = d.nextM;
+      }
+      if (d.nextT !== undefined) {
+        state.sched.nextT = d.nextT;
+      }
+      if (d.nextIn !== undefined) {
+        state.sched.nextIn = d.nextIn;
+        updateNextBellUI();
       }
     }
 
     function updateTimeUI() {
       const h = String(state.time.h).padStart(2, '0');
       const m = String(state.time.m).padStart(2, '0');
-      document.getElementById('currentTime').textContent = h + ':' + m;
+      const s = String(state.time.s || 0).padStart(2, '0');
+      document.getElementById('currentTime').textContent = h + ':' + m + ':' + s;
+    }
+
+    function updateCountdownUI() {
+      const el = document.getElementById('nextBellCountdown');
+      const nextIn = Number(state.sched.nextIn);
+      const show = Number.isFinite(nextIn) && nextIn > 0 && nextIn <= 10 && !state.sched.ring;
+
+      if (show) {
+        el.textContent = '-' + nextIn + 's';
+        el.classList.add('active');
+      } else {
+        el.textContent = '';
+        el.classList.remove('active');
+      }
     }
 
     function updateNextBellUI() {
       const h = String(state.sched.nextH).padStart(2, '0');
       const m = String(state.sched.nextM).padStart(2, '0');
-      document.getElementById('nextBellTime').textContent = h + ':' + m;
+      const hasNext = state.sched.nextT && state.sched.nextT !== 'Nessuna' && state.sched.nextIn !== -1;
+      document.getElementById('nextBellTime').textContent = hasNext ? (h + ':' + m) : '--:--';
       document.getElementById('nextBellType').textContent = state.sched.nextT || 'Nessuna';
+      updateCountdownUI();
     }
 
     function updateWifiUI() {
@@ -677,15 +769,19 @@ th {
         state.system.name = d.system.name || '';
         state.system.global = d.system.global;
         state.system.version = d.system.version;
+        state.system.wifiTxPowerLevel = d.system.wifiTxPowerLevel ?? 3;
+        state.system.wifiTxPowerLabel = d.system.wifiTxPowerLabel || '';
         document.getElementById('institutionName').textContent = state.system.name || 'Istituzione';
         document.getElementById('settingsName').value = state.system.name;
         document.getElementById('settingsGlobal').checked = state.system.global;
+        document.getElementById('settingsWifiTxPower').value = String(state.system.wifiTxPowerLevel);
       }
 
       // Time
       if (d.time) {
         state.time.h = d.time.h;
         state.time.m = d.time.m;
+        state.time.s = d.time.s || 0;
         state.time.ntp = d.time.ntp;
         updateTimeUI();
         document.getElementById('currentDate').textContent = d.time.date || '';
@@ -712,6 +808,7 @@ th {
         state.sched.ringId = d.sched.ringId;
         state.sched.nextH = d.sched.nextH;
         state.sched.nextM = d.sched.nextM;
+        state.sched.nextIn = d.sched.nextIn ?? -1;
         state.sched.nextT = d.sched.nextT;
         updateNextBellUI();
       }
@@ -734,8 +831,10 @@ th {
       if (data) {
         document.getElementById('wifiIP').textContent = data.ip || '-';
         document.getElementById('wifiSSID').textContent = data.ssid || '-';
-        document.getElementById('wifiNTP').textContent = data.ntpSynced ? 'Sincronizzato' : 'Non sincronizzato';
-        document.getElementById('newWifiSSID').value = data.ssid || '';
+        document.getElementById('wifiNTP').textContent = data.ntpSynced
+          ? 'Sincronizzato'
+          : `Non sincronizzato (${data.timeSource || 'nessuno'})`;
+        document.getElementById('newWifiSSID').value = data.configuredSsid || '';
 
         const box = document.getElementById('wifiStatusBox');
         const detail = document.getElementById('wifiStatusDetail');
@@ -744,6 +843,9 @@ th {
         if (data.state === 4) {
           box.classList.add('ap-mode');
           detail.textContent = 'Modalita Access Point';
+        } else if (data.usingRescue) {
+          box.classList.add('connected');
+          detail.textContent = 'Connesso tramite hotspot di emergenza';
         } else if (data.state === 3) {
           box.classList.add('connected');
           detail.textContent = 'Connesso e Sincronizzato';
@@ -950,10 +1052,11 @@ th {
       const globalEnabled = document.getElementById('settingsGlobal').checked;
       const gmtOffset = parseInt(document.getElementById('settingsTimezone').value);
       const dstOffset = document.getElementById('settingsDST').checked ? 3600 : 0;
+      const wifiTxPowerLevel = parseInt(document.getElementById('settingsWifiTxPower').value);
 
       await api('/api/settings', {
         method: 'PUT',
-        body: JSON.stringify({ institutionName: name, globalEnabled })
+        body: JSON.stringify({ institutionName: name, globalEnabled, wifiTxPowerLevel })
       });
 
       await api('/api/timezone', {
@@ -962,9 +1065,7 @@ th {
       });
 
       closeModal('settingsModal');
-      // Ricarica in sequenza
-      await loadSettings();
-      await loadStatus();
+      await loadState();
     }
 
     // === WiFi ===
